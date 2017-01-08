@@ -1,0 +1,193 @@
+{
+    "statements" :
+    {
+        "get_employee_by_emp_no" :
+	{
+	    "statement_text" :
+	    [
+		"SELECT * ",
+		"FROM employees ",
+		"WHERE emp_no = ? "
+	    ],
+	    "parameters" : 
+	    [
+                { "name" : "emp_no", "param_type" : "marker", "data_type" : "int" }
+	    ]
+	},
+	
+        "sample_employees" :
+	{
+	    "statement_text" :
+	    [
+		"SELECT * ",
+		"FROM employees ",
+		"LIMIT ? "
+	    ],
+	    "parameters" : 
+	    [
+                { "name" : "sample_size", "param_type" : "marker", "data_type" : "int" }
+	    ]
+	},
+	
+        "get_current_employee_info_by_emp_no" :
+	{
+	    "statement_text" :
+	    [
+		"SELECT e.*, ",
+		"       d.*, ",
+		"       s.salary ",
+		"FROM employees e ",
+		"INNER JOIN dept_emp de ",
+		"ON e.emp_no = de.emp_no ",
+		"INNER JOIN departments d ",
+		"ON d.dept_no = de.dept_no ",
+		"INNER JOIN salaries s ",
+		"ON s.emp_no = e.emp_no ",
+		"WHERE e.emp_no = ? ",
+		"AND de.to_date > NOW() ",
+		"AND s.to_date > NOW()"
+
+	    ],
+	    "parameters" : 
+	    [
+                { "name" : "emp_no", "param_type" : "marker", "data_type" : "int" }
+	    ]
+	},
+	
+        "get_dept_by_dept_no" :
+	{
+	    "statement_text" :
+	    [
+		"SELECT * ",
+		"FROM departments ",
+		"WHERE dept_no = ? "
+	    ],
+	    "parameters" : 
+	    [
+                { "name" : "dept_no", "param_type" : "marker", "data_type" : "string" }
+	    ]
+	},
+	
+        "add_employee_to_employee_table" :
+	{
+	    "statement_text" :
+	    [
+		"INSERT INTO employees ",
+		"( ",
+		"    emp_no, ",
+		"    birth_date, ",
+		"    first_name, ",
+		"    last_name, ",
+		"    gender, ",
+		"    hire_date ",
+		") ",
+		"VALUES ",
+		"( ",
+		"    ?, ",
+		"    ?, ",
+		"    ?, ",
+		"    ?, ",
+		"    ?, ",
+		"    ?  ",
+		") "
+	    ],
+	    "parameters" : 
+	    [
+                { "name" : "emp_no", "param_type" : "marker", "data_type" : "int" },
+                { "name" : "birth_date", "param_type" : "marker", "data_type" : "date" },
+                { "name" : "first_name", "param_type" : "marker", "data_type" : "string" },
+                { "name" : "last_name", "param_type" : "marker", "data_type" : "string" },
+                { "name" : "gender", "param_type" : "marker", "data_type" : "string", "regex" : "[MF]" },
+                { "name" : "hire_date", "param_type" : "marker", "data_type" : "date" }
+	    ]
+	},
+
+	"assign_employee_to_department" :
+	{
+	    "statement_text" :
+	    [
+		"INSERT INTO dept_emp ",
+		"( ",
+		"    emp_no, ",
+		"    dept_no, ",
+		"    from_date, ",
+		"    to_date ",
+		") ",
+		"VALUES ",
+		"( ",
+		"    ?, ",
+		"    ?, ",
+		"    ?, ",
+		"    ?  ",
+		") "
+            ],
+	    "parameters" : 
+	    [
+                { "name" : "emp_no", "param_type" : "marker", "data_type" : "int" },
+                { "name" : "dept_no", "param_type" : "marker", "data_type" : "string" },
+                { "name" : "from_date", "param_type" : "marker", "data_type" : "date" },
+                { "name" : "to_date", "param_type" : "marker", "data_type" : "date" }
+	    ]
+	},
+
+	"set_employee_salary" :
+	{
+	    "statement_text" :
+	    [
+		"INSERT INTO salaries ",
+		"( ",
+		"    emp_no, ",
+		"    salary, ",
+		"    from_date, ",
+		"    to_date ",
+		") ",
+		"VALUES ",
+		"( ",
+		"    ?, ",
+		"    ?, ",
+		"    ?, ",
+		"    ?  ",
+		") "
+            ],
+	    "parameters" : 
+	    [
+                { "name" : "emp_no", "param_type" : "marker", "data_type" : "int" },
+                { "name" : "salary", "param_type" : "marker", "data_type" : "int" },
+                { "name" : "from_date", "param_type" : "marker", "data_type" : "date" },
+                { "name" : "to_date", "param_type" : "marker", "data_type" : "date" }
+	    ]
+	},
+
+        "salary_range_for_dept" :
+        {
+            "statement_text" : 
+            [
+                "SELECT de.dept_no, ",
+		"       min(s.salary) as 'min salary', ",
+		"       max(s.salary) as 'max salary' ",
+		"FROM salaries s ",
+		"INNER JOIN dept_emp de ",
+		"ON s.emp_no = de.emp_no ",
+		"WHERE de.dept_no = ? "
+	    ],
+	    "parameters" : 
+	    [
+                { "name" : "dept_no", "param_type" : "marker", "data_type" : "string" }
+	    ]
+        },
+
+	"days_from_now" :
+	{
+	    "statement_text" :
+	    [
+		"SELECT DATEDIFF(NOW(), '@date_string') AS days"
+	    ],
+	    "parameters" :
+	    [
+		{ "name" : "date_string", "param_type" : "substitute", "data_type" : "string" }
+	    ]
+	}
+    }
+}
+
+

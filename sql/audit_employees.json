@@ -1,0 +1,112 @@
+{
+    "statements" :
+    {
+        "create_audit_table" :
+	{
+	    "statement_text" :
+	    [
+		"CREATE TABLE IF NOT EXISTS @table_name ",
+		"( ",
+		"  statement_name  VARCHAR(256), ",
+		"  statement_text  VARCHAR(4096), ",
+		"  parameters      VARCHAR(4096) NULL, ",
+		"  rows_returned   INT NULL, ",
+		"  rows_affected   INT NULL, ",
+		"  error_no        INT NULL, ",
+		"  error_message   VARCHAR(1024) NULL, ",
+		"  start_time      TIMESTAMP(3), ",
+		"  execute_time    TIMESTAMP(3) NULL, ",
+		"  retrieve_time   TIMESTAMP(3) NULL, ",
+		"  complete_time   TIMESTAMP(3) NULL ",
+		") "
+	    ],
+	    "parameters" : 
+	    [
+                { "name" : "table_name", "param_type" : "substitute", "data_type" : "string" }
+	    ]
+	},
+	
+        "insert_audit_record" :
+	{
+	    "statement_text" :
+	    [
+		"INSERT INTO @table_name ",
+		"( ",
+		"  statement_name, ",
+		"  statement_text, ",
+		"  parameters , ",
+		"  rows_returned, ",
+		"  rows_affected, ",
+		"  error_no, ",
+		"  error_message, ",
+		"  start_time, ",
+		"  execute_time, ",
+		"  retrieve_time, ",
+		"  complete_time ",
+		") ",
+		"VALUES ",
+		"( ",
+		"  ?, ",
+		"  ?, ",
+		"  ?, ",
+		"  ?, ",
+		"  ?, ",
+		"  ?, ",
+		"  ?, ",
+		"  ?, ",
+		"  ?, ",
+		"  ?, ",
+		"  ? ",
+		") "
+	    ],
+	    "parameters" : 
+	    [
+                { "name" : "table_name", "param_type" : "substitute", "data_type" : "string" },
+                { "name" : "statement_name", "param_type" : "marker", "data_type" : "string" },
+                { "name" : "statement_text", "param_type" : "marker", "data_type" : "string" },
+                { "name" : "parameters", "param_type" : "marker", "data_type" : "string" },
+                { "name" : "rows_returned", "param_type" : "marker", "data_type" : "int" },
+                { "name" : "rows_affected", "param_type" : "marker", "data_type" : "int" },
+                { "name" : "error_no", "param_type" : "marker", "data_type" : "int" },
+                { "name" : "error_message", "param_type" : "marker", "data_type" : "string" },
+                { "name" : "start_time", "param_type" : "marker", "data_type" : "timestamp" },
+                { "name" : "execute_time", "param_type" : "marker", "data_type" : "timestamp" },
+                { "name" : "retrieve_time", "param_type" : "marker", "data_type" : "timestamp" },
+                { "name" : "complete_time", "param_type" : "marker", "data_type" : "timestamp" }
+	    ]
+	},
+	
+        "audit_summary" :
+	{
+	    "statement_text" :
+	    [
+		"SELECT ",
+		"   statement_name as statement, ",
+		"   start_time as time, ",
+		"   parameters as params, ",
+		"   rows_returned as returned, ",
+		"   rows_affected as affected, ",
+		"   error_message as msg ",
+		"FROM @table_name "
+	    ],
+	    "parameters" : 
+	    [
+                { "name" : "table_name", "param_type" : "substitute", "data_type" : "string" }
+	    ]
+	},
+	
+        "audit_dump" :
+	{
+	    "statement_text" :
+	    [
+		"SELECT * ",
+		"FROM @table_name "
+	    ],
+	    "parameters" : 
+	    [
+                { "name" : "table_name", "param_type" : "substitute", "data_type" : "string" }
+	    ]
+	}
+    }
+}
+    
