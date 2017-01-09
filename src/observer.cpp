@@ -62,11 +62,15 @@ MySqlObserver::MySqlObserver(const char * name, const rapidjson::Document * para
 :   name_(name),
     conn_(conn)
 {
+    CONN_LOG(conn_, trace) << "Creating observer " << name_
+                           << " on connection " << conn_->getConnectionName();  
     getWorkingDirectory(params);
 }
 
 MySqlObserver::~MySqlObserver()
 {
+    CONN_LOG(conn_, trace) << "Destroying observer " << name_
+                           << " on connection " << conn_->getConnectionName();  
 }
 
 void              
@@ -443,13 +447,16 @@ ReplayObserver::onEvent(MySqlExecution * execution, ExecutionState newState)
         const Value & replayResults = replayExecution["results"];
         execution->getResults().CopyFrom(replayResults, execution->getResults().GetAllocator());
     }
-    if (replayExecution.HasMember("error_message"))
+    if (replayExecution.HasMember("error_no"))
     {
-        const string & replayErrorMessage = replayExecution["error_message"].GetString();
         int replayErrorNo = replayExecution["error_no"].GetInt();
-        execution->errorMessage_ = replayErrorMessage;
-        execution->errorNo_ = replayErrorNo;
-        conn_->reportError(replayErrorMessage, replayErrorNo, execution->getHandle());
+	if (replayErrorNo)
+	{
+            const string & replayErrorMessage = replayExecution["error_message"].GetString();
+            execution->errorMessage_ = replayErrorMessage;
+            execution->errorNo_ = replayErrorNo;
+            conn_->reportError(replayErrorMessage, replayErrorNo, execution->getHandle());
+        }
     }
     int exitState = replayExecution["state"].GetInt();
     return static_cast<MySqlExecution::ExecutionState>(exitState);

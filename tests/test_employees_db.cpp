@@ -49,7 +49,7 @@ TEST_F(EmployeesDbTest, AddEmployee)
     auditParams.AddMember("database", "employees", auditParams.GetAllocator());      
     auditParams.AddMember("table_name", "audit_test", auditParams.GetAllocator());   
     auditParams.AddMember("sql", "audit_employees.json", auditParams.GetAllocator());
-    conn_->addObserver("audit", AUDIT_OBS, &auditParams);
+    if (testType_ == "integration") conn_->addObserver("audit", AUDIT_OBS, &auditParams);
     
     const rapidjson::Value & newEmployee = testInputDoc_["new_employee"];
     const rapidjson::Value & existingEmployee = testInputDoc_["existing_employee"];
