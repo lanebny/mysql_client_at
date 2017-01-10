@@ -13,6 +13,9 @@ namespace po = boost::program_options;
 
 using std::cerr;
 
+//                              M Y S Q L  G T E S T
+
+// Derive 
 class MySqlGtest
 {
 public:
@@ -151,7 +154,7 @@ MySqlGtest::setUpMySqlTestCase(const char * testCaseName)
     const char * user = connectionInfo["user"].GetString();
 
     char * password = NULL;
-    if (connectionInfo.HasMember("password"))
+    if (connectionInfo.HasMember("password") && !connectionInfo["password"].IsNull())
       password = const_cast<char *>(connectionInfo["password"].GetString());
 
     char * host = NULL;

@@ -3,12 +3,11 @@
     {
 	"database"   : "employees",
 	"sql_dict"   : "employees.json",
-        "user"       : "tester",
-	"password"   : "tester",
+        "user"       : "root",
+	"password"   : null,
         "host"       : "localhost",
 	"port"       : 3306
     },
-    "log_path"       : "./test_employees_db.log",
     "new_employee" :
     {
 	"emp_no"     : 1234568,

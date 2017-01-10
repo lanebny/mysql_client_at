@@ -43,13 +43,16 @@ TEST_F(EmployeesDbTest, AddEmployee)
     cmatch regexMatch;
 
     if (debug_) conn_->addObserver("debug", DEBUG_OBS);
-    
-    rapidjson::Document auditParams;
-    auditParams.SetObject();
-    auditParams.AddMember("database", "employees", auditParams.GetAllocator());      
-    auditParams.AddMember("table_name", "audit_test", auditParams.GetAllocator());   
-    auditParams.AddMember("sql", "audit_employees.json", auditParams.GetAllocator());
-    if (testType_ == "integration") conn_->addObserver("audit", AUDIT_OBS, &auditParams);
+
+    if (testType_ == "integration")
+    {
+        rapidjson::Document auditParams;
+        auditParams.SetObject();
+        auditParams.AddMember("database", "employees", auditParams.GetAllocator());      
+        auditParams.AddMember("table_name", "audit_test", auditParams.GetAllocator());   
+        auditParams.AddMember("sql", "audit_employees.json", auditParams.GetAllocator());
+        conn_->addObserver("audit", AUDIT_OBS, &auditParams);
+    }
     
     const rapidjson::Value & newEmployee = testInputDoc_["new_employee"];
     const rapidjson::Value & existingEmployee = testInputDoc_["existing_employee"];
@@ -121,6 +124,23 @@ TEST_F(EmployeesDbTest, AddEmployee)
     const regex badDeptRegex("get_dept_by_dept_no.+?returned 0 rows");
     ASSERT_TRUE(regex_search(errorMessage, regexMatch, badDeptRegex))
                 << "Expected \'get_dept_by_dept_no...returned 0 rows\', received " << errorMessage;
+
+    // Try to add an employee with an invalid salary.
+    rc = addEmployee(newEmployee["emp_no"].GetInt(),
+		     newEmployee["birth_date"].GetString(),
+		     newEmployee["first_name"].GetString(),
+		     newEmployee["last_name"].GetString(),
+		     newEmployee["gender"].GetString(),
+		     newEmployee["hire_date"].GetString(),
+		     newEmployee["dept_no"].GetString(),
+		     1000000,  // bad salary
+                     conn_.get());
+    ASSERT_EQ(rc, 1) << "Expected failure (rc 1) when trying to add a user with an invalid salary 1,000,000"
+                     << ". Got rc " << rc;
+    errorMessage = conn_->getErrorMessage();
+    const regex badSalaryRegex("out of range for department");
+    ASSERT_TRUE(regex_search(errorMessage, regexMatch, badSalaryRegex))
+                << "Expected \'out of range for department\', received " << errorMessage;
 
     // Add the employee. This should succeed
     rc = addEmployee(newEmployee["emp_no"].GetInt(),
