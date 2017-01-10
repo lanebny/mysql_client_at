@@ -53,8 +53,9 @@ The project sets up cmake for *out-of-source* builds. That is, the build-related
 `cmake ..`    
 `make`  
 
+<a name="python"></a>
 ###Trying out SQL statements###
-<a name="python"></a>The project includes a Python script called `sql_explorer` that allows you to browse the JSON SQL libraries and to interactively execute SQL statements. The libraries are reloaded after each execution so you can rapidly test and refine new SQL even before apps that use it are written.
+The project includes a Python script called `sql_explorer` that allows you to browse the JSON SQL libraries and to interactively execute SQL statements. The libraries are reloaded after each execution so you can rapidly test and refine new SQL even before apps that use it are written.
 
 `cd ../python`  
 `python sql_explorer.py`
@@ -76,7 +77,7 @@ The audit queries take a table-name as a parameter. After you run the gtest in t
 
 ###Exercising the framework###
 
-It's good practice to package database operations in libraries that hide the SQL and expose high-level business functions.  Besides providing intuitive APIs and re-usable functionality, this allows tests to exercise exactly the same functionality that the production applications use.  
+It's good practice to package database operations in libraries that hide the SQL and expose high-level business functions.  Besides providing intuitive APIs and re-usable functionality, this allows tests to exercise exactly the same code that the production applications use.  
 
 The installation process generated one such library, `libemployees_db.a` from `examples/employees_db.cpp` . This library implements a single business function, `addEmployee`, which accepts information about a new hire, performs a number of validation queries (Is the employee number already in use? Is the department name valid? Does the salary make sense given the current salary range?) and then executes three INSERT statements as a single transaction to set up the employee.
 

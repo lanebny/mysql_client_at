@@ -83,15 +83,19 @@
 		"SELECT ",
 		"   statement_name as statement, ",
 		"   start_time as time, ",
-		"   parameters as params, ",
 		"   rows_returned as returned, ",
 		"   rows_affected as affected, ",
-		"   error_message as msg ",
+		"   error_no as rc, ",
+		"   timestampdiff(microsecond, start_time, complete_time)/1000000 as elapsed ",
 		"FROM @table_name "
 	    ],
 	    "parameters" : 
 	    [
                 { "name" : "table_name", "param_type" : "substitute", "data_type" : "string" }
+	    ],
+	    "description" : 
+	    [
+                "Selects a summary of each execution from <table_name>"    
 	    ]
 	},
 	

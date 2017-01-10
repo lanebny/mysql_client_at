@@ -21,11 +21,21 @@
 	    [
 		"SELECT * ",
 		"FROM employees ",
-		"LIMIT ? "
+		"WHERE rand() < ",
+		"? / ",
+		"( ",
+		"   SELECT count(*) ",
+                "   FROM employees ",
+                ") "
 	    ],
 	    "parameters" : 
 	    [
                 { "name" : "sample_size", "param_type" : "marker", "data_type" : "int" }
+	    ],
+	    "description" :
+	    [
+		"Return a random selection of roughly <sample_size> records from the employees table",
+		"Used in automatic generation of test databases"
 	    ]
 	},
 	

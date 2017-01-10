@@ -9,6 +9,7 @@ import re
 import enum
 from   collections import OrderedDict
 import cPickle
+import time
 
 from connection import MySqlConnection
 from sql_statement import MySqlStatement
@@ -26,6 +27,7 @@ class LineColors(enum.Enum):
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
     WARNING = '\033[93m'
+    GRAY = '\033[90m'
     FAIL = '\033[91m'
     BOLD = '\033[1m'
     ENDC = '\033[0m'
@@ -205,8 +207,15 @@ def make_pick_statement_prompt(statements):
     prompt_lines = ["\n{c.HEADER.value}{:d} statements found:{c.ENDC.value}"
                     .format(len(statements), c=LineColors)]
     for i in range(len(statements)):
-        prompt_lines.append("   {:<3d}: {s.statement_name}"
-                            .format(i+1, s=statements[i]))
+        prompt_strings = []
+        prompt_strings.append("   {:<3d}: {s.statement_name}  ({s.sql_dictionary_file})"
+                              .format(i+1, s=statements[i]))
+        if statements[i].description is not None:
+            description_lines = statements[i].description.splitlines()
+            for description_line in description_lines:
+                prompt_strings.append("\n{}{c.GRAY.value}{}{c.ENDC.value}".
+                                      format(8*' ', description_line, c=LineColors))
+        prompt_lines.append(''.join(prompt_strings))
     prompt_lines.append("Enter a statement number, or nothing to quit: ")
     return '\n'.join(prompt_lines)
 
@@ -263,8 +272,6 @@ def make_pick_parameter_prompt(statement, parameters):
         parameter = parameters[i]
         if next_parameter is None and parameter.value is None:
             next_parameter = parameter
-            prompt_lines.append("\n{c.HEADER.value}{s.statement_name} takes {0:d} parameter{1}:{c.ENDC.value}".
-                                format(len(parameters), ('' if len(parameters) == 1 else 's'), c=LineColors, s=statement))
         prompt_lines.append("   {:<2d}: {!r}".format(i+1, parameter))
     input_line = []
     if next_parameter is None:
@@ -274,7 +281,9 @@ def make_pick_parameter_prompt(statement, parameters):
                           .format(p=next_parameter, c=LineColors))
     input_line.append("a parameter number, 'x' to execute, or nothing to quit: ")
     prompt_lines.append(''.join(input_line))
-    return '\n'.join(prompt_lines)
+    prompt = "\n{c.HEADER.value}{s.statement_name} takes {0:d} parameter{1}:{c.ENDC.value}\n". \
+             format(len(parameters), ('' if len(parameters) == 1 else 's'), c=LineColors, s=statement)
+    return prompt + '\n'.join(prompt_lines)
 
 def make_execute_prompt(statement, statement_text):
     """
@@ -303,15 +312,13 @@ def execute_statement(statement, parameter_settings, statement_text):
     """
     connection = MySqlConnection.get_current_connection()
     try:
+        start = time.time()
         results = connection.execute_statement(statement_text)
-        if results.rows_affected:
-            print("{c.OKGREEN.value}{:d} rows affected{c.ENDC.value}".
-                  format(results.rows_affected, c=LineColors))
-        elif results.rows_returned == 0:
-            print("{c.OKGREEN.value}No rows returned{c.ENDC.value}".format(c=LineColors))
-        else:
-            rows = results.rows
-            print_rows(rows)
+        elapsed = time.time() - start;
+        if results.rows_returned:
+            print_rows(results.rows)
+        print("{c.OKGREEN.value}{:.3f} sec. Rows affected {r.rows_affected:d}, rows returned {r.rows_returned:d}{c.ENDC.value}"
+              .format(elapsed, r=results, c=LineColors))
     except Exception as err:
         print("{c.FAIL.value}Error executing {s.statement_name}: {!s}{c.ENDC.value}".
               format(err, s=statement, c=LineColors))
@@ -334,7 +341,7 @@ def print_rows(rows):
     line_length = sum(column_widths) + 2 * column_count
     row_strings = []
     # print as grid
-    if line_length < 100:
+    if line_length < 150:
         heading_strings = ["\n"]
         for i in range(column_count):
             padding = (column_widths[i] - len(column_names[i]))*' '

@@ -5,6 +5,7 @@ and using the settings to expand dictionary text into
 executable SQL statements. It doesn't depend on MySQL.
 """
 from __future__ import print_function
+import os.path
 import sys
 import glob
 import json
@@ -12,7 +13,6 @@ import re
 import enum
 import copy
 from   datetime import datetime
-import pdb
 
 
 #                             M Y S Q L  S T A T E M E N T
@@ -27,11 +27,13 @@ class MySqlStatement(object):
     """
     def __init__(self, sql_dictionary_path, statement_name, statement_dict):
         self.sql_dictionary_path = sql_dictionary_path
+        self.sql_dictionary_file = os.path.basename(self.sql_dictionary_path)
         self.statement_name = statement_name
         if "statement_text" not in statement_dict:
             raise ValueError("Statement {} in {} is incomplete".
                              format(self.statement_name, self.sql_dictionary_path))
         self.statement_text = '\n'.join(statement_dict["statement_text"])
+        self.description = '\n'.join(statement_dict["description"]) if "description" in statement_dict else None
         self.parameters = statement_dict.get("parameters", None)
             
     def get_parameters(self):
