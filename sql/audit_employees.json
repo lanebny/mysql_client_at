@@ -7,7 +7,10 @@
 	    [
 		"CREATE TABLE IF NOT EXISTS @table_name ",
 		"( ",
+		"  id              INT NOT NULL AUTO_INCREMENT, ",
 		"  statement_name  VARCHAR(256), ",
+		"  program         VARCHAR(256) NULL, ",
+		"  transaction     VARCHAR(256) NULL, ",
 		"  statement_text  VARCHAR(4096), ",
 		"  parameters      VARCHAR(4096) NULL, ",
 		"  rows_returned   INT NULL, ",
@@ -17,7 +20,8 @@
 		"  start_time      TIMESTAMP(3), ",
 		"  execute_time    TIMESTAMP(3) NULL, ",
 		"  retrieve_time   TIMESTAMP(3) NULL, ",
-		"  complete_time   TIMESTAMP(3) NULL ",
+		"  complete_time   TIMESTAMP(3) NULL, ",
+		"  PRIMARY KEY (id) ",
 		") "
 	    ],
 	    "parameters" : 
@@ -33,6 +37,8 @@
 		"INSERT INTO @table_name ",
 		"( ",
 		"  statement_name, ",
+		"  program, ",
+		"  transaction, ",
 		"  statement_text, ",
 		"  parameters , ",
 		"  rows_returned, ",
@@ -56,6 +62,8 @@
 		"  ?, ",
 		"  ?, ",
 		"  ?, ",
+		"  ?, ",
+		"  ?, ",
 		"  ? ",
 		") "
 	    ],
@@ -63,6 +71,8 @@
 	    [
                 { "name" : "table_name", "param_type" : "substitute", "data_type" : "string" },
                 { "name" : "statement_name", "param_type" : "marker", "data_type" : "string" },
+                { "name" : "program", "param_type" : "marker", "data_type" : "string" },
+                { "name" : "transaction", "param_type" : "marker", "data_type" : "string" },
                 { "name" : "statement_text", "param_type" : "marker", "data_type" : "string" },
                 { "name" : "parameters", "param_type" : "marker", "data_type" : "string" },
                 { "name" : "rows_returned", "param_type" : "marker", "data_type" : "int" },
@@ -81,12 +91,15 @@
 	    "statement_text" :
 	    [
 		"SELECT ",
+		"   id, ",
 		"   statement_name as statement, ",
-		"   start_time as time, ",
+		"   program, ",
+		"   transaction, ",
+		"   DATE_FORMAT(start_time, '%Y-%m-%d %H:%i:%S') as time, ",
 		"   rows_returned as returned, ",
 		"   rows_affected as affected, ",
 		"   error_no as rc, ",
-		"   timestampdiff(microsecond, start_time, complete_time)/1000000 as elapsed ",
+		"   TIMESTAMPDIFF(microsecond, start_time, complete_time)/1000000 as elapsed ",
 		"FROM @table_name "
 	    ],
 	    "parameters" : 
@@ -99,16 +112,20 @@
 	    ]
 	},
 	
-        "audit_dump" :
+        "audit_dump_range" :
 	{
 	    "statement_text" :
 	    [
 		"SELECT * ",
-		"FROM @table_name "
+		"FROM @table_name ",
+		"WHERE id >= ? ",
+		"AND id <= ? "
 	    ],
 	    "parameters" : 
 	    [
-                { "name" : "table_name", "param_type" : "substitute", "data_type" : "string" }
+                { "name" : "table_name", "param_type" : "substitute", "data_type" : "string" },
+                { "name" : "first_id", "param_type" : "marker", "data_type" : "int" },
+                { "name" : "last_id", "param_type" : "marker", "data_type" : "int" }
 	    ]
 	}
     }

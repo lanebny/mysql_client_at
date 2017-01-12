@@ -1,6 +1,6 @@
 find_package( Boost REQUIRED COMPONENTS log thread regex program_options filesystem )
 add_definitions(-DBOOST_LOG_DYN_LINK)
-include_directories("../include" "/usr/include/mysql" ${Boost_INCLUDE_DIRS})
+include_directories("../include" "/usr/include/mysql" "../rapidjson/include/" ${Boost_INCLUDE_DIRS})
 file(GLOB SOURCES "*.cpp" "*.h")
 find_library(MYSQL_CLIENT
 	NAMES mysqlclient.dll

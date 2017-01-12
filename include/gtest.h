@@ -186,6 +186,8 @@ MySqlGtest::setUpMySqlTestCase(const char * testCaseName)
             conn_->addObserver(testCaseName, REPLAY_OBS); 
         }
     }
+
+    conn_->startProgram(testCaseName);
 }
 
 void

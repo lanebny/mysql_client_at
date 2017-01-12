@@ -129,8 +129,8 @@ void
 MySqlConnection::startProgram(const char * programName) 
 {
     if (async_) flushExecutionThread(START_PROGRAM_REQUEST, 0, programName);
-    currentProgram_ = programName;
-    for (ObserverList::iterator itrobs = observers_.begin();
+    currentProgram_.push_back(programName);
+    for (ObserverList::const_iterator itrobs = observers_.begin();
          itrobs != observers_.end();
          ++itrobs)
     {
@@ -148,7 +148,30 @@ MySqlConnection::endProgram(const char * programName)
     {
         (*itrobs)->endProgram(programName);
     }
-    currentProgram_.clear();
+    for (std::vector<string>::iterator itr = currentProgram_.begin();
+         itr != currentProgram_.end();
+         ++itr)
+    {
+        if (*itr == programName)
+        {
+            currentProgram_.erase(itr);
+            break; 
+        }
+    }
+}
+
+string
+MySqlConnection::getCurrentProgram() const
+{
+    string currentProgram;
+    for (std::vector<string>::const_iterator itr = currentProgram_.begin();
+         itr != currentProgram_.end();
+         ++itr)
+    {
+        if (!currentProgram.empty()) currentProgram += '.';
+        currentProgram += *itr;
+    }
+    return currentProgram;
 }
 
 MySqlConnection::ExecutionHandle

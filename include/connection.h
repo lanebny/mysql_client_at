@@ -152,10 +152,11 @@ public:
     int               startTransaction(const char * transactionName);
     int               commitTransaction();
     int               rollbackTransaction(const stringstream & reason);
+    const string &    getCurrentTransaction() const { return transactionName_; }
     
     void              startProgram(const char * programName);
     void              endProgram(const char * programName);
-    const char *      getProgram() const {  return currentProgram_.c_str();  }
+    string            getCurrentProgram() const;
 
     void              addObserver(const char * observerName, ObserverType type, const rapidjson::Document * params=NULL);
     void              removeObserver(const char * observerName);
@@ -192,7 +193,7 @@ private:
     ExecutionList                    executions_;
     ObserverList                     observers_;
     unique_ptr<ExecutionThread>      executionThread_;
-    string                           currentProgram_;
+    std::vector<string>              currentProgram_;
     string                           transactionName_;
     bool                             isTransactions_;
     bool                             async_;

@@ -38,7 +38,7 @@ public:
         NO_STATE,
         INITIAL_STATE,
         STATEMENT_VALID_STATE,
-        BINDINGS_CREATED_STATE,
+        SETTINGS_CREATED_STATE,
         SQL_GENERATED_STATE,
 	MYSQL_STMT_CREATED_STATE,
         BINDINGS_PREPARED_STATE,
@@ -67,7 +67,7 @@ public:
     virtual ~MySqlExecution();
 
 public:
-    void              setParameterValues(const Document * settings) { settings_ = settings; }
+    void              setParameterValues(const Document * args)     { argDoc_ = args; }
     int               getHandle() const                             { return executionHandle_; }
     void              setRequestSequence(RequestSequence seq)       { requestSequence_ = seq; }
     RequestSequence   getRequestSequence() const                    { return requestSequence_; }
@@ -79,7 +79,7 @@ public:
     bool              isTerminalState(ExecutionState state);
     const string &    getStatementName() const                      { return statementName_; }
     const string &    getStatementText() const                      { return statementText_; } 
-    const Document &  getBindings() const                           { return bindings_; } 
+    const Document &  getSettings() const                           { return settings_; } 
     int               getRowCount() const                           { return rowCount_; }
     int               getRowsAffected() const                       { return rowsAffected_; }
     const Document &  getResults() const                            { return results_; }
@@ -98,8 +98,8 @@ public:
 // state functions: execution steps
 private:
     int               validateStatement();       // INITIAL_STATE
-    int               createBindings();          // STATEMENT_VALID_STATE
-    int               generateStatementText();   // BINDINGS_CREATED_STATE
+    int               createSettings();          // STATEMENT_VALID_STATE
+    int               generateStatementText();   // SETTINGS_CREATED_STATE
     int               createPreparedStatement(); // SQL_GENERATED_STATE
     int               prepareToBind();           // MYSQL_STMT_CREATED
     int               bindParameters();          // BINDINGS_PREPARED_STATE
@@ -124,7 +124,7 @@ private:
     RequestSequence       requestSequence_;  // assigned by execution thread if connection is async
     string                statementName_;
     va_list &             args_;
-    const Document *      settings_;
+    const Document *      argDoc_;
     MYSQL_STMT *          statementHandle_;
     string                statementText_;
     rapidjson::Document   dom_;
@@ -134,7 +134,7 @@ private:
     int                   errorNo_;
     string                errorMessage_;
     
-    rapidjson::Document   bindings_;
+    rapidjson::Document   settings_;
     MYSQL_BIND *          parameterBindArray_;
     unsigned long         paramCount_;
     char *                paramBuffer_;

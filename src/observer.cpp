@@ -247,11 +247,7 @@ AuditObserver::onEvent(MySqlExecution * execution, ExecutionState newState)
 
         rapidjson::Value::ConstMemberIterator itrvalue = dom.FindMember(fieldName.c_str());
         if (itrvalue == dom.MemberEnd())
-        {
-	    EX_LOG(auditConn_, execution, error) << "Unknown audit field \'" << fieldName << "\'. Auditing canceled";
-            isAuditing_= false;
-            return newState; 
-        }
+	    continue;  
         Value parameterName;
         parameterName.CopyFrom(itrvalue->name, insertParameters.GetAllocator());
         Value parameterValue;
@@ -507,12 +503,12 @@ DebugObserver::onEvent(MySqlExecution * execution, ExecutionState newState)
     {
         stringstream settingsMsg;
         settingsMsg << "  Ready to execute MySql bind: paramCount " << execution->paramCount_ << "\n   ";
-        for (Value::ConstMemberIterator itrbind = execution->bindings_.MemberBegin();
-             itrbind != execution->bindings_.MemberEnd();
-	     ++itrbind)
+        for (Value::ConstMemberIterator itrsetting = execution->settings_.MemberBegin();
+             itrsetting != execution->settings_.MemberEnd();
+	     ++itrsetting)
         {
-	    settingsMsg << itrbind->name.GetString() << ":";
-            const Value & setting = itrbind->value;
+	    settingsMsg << itrsetting->name.GetString() << ":";
+            const Value & setting = itrsetting->value;
             if (setting.HasMember("param_value"))
 	        MySqlConnectionImpl::printValue(setting["param_value"], settingsMsg);
 	    settingsMsg << "  ";			  

@@ -9,7 +9,24 @@
 
 
  
-//                                M Y S Q L  E X E C U T I O N
+//                          M Y S Q L  E X E C U T I O N
+
+// A MySqlExecution object encapsulates the execution of a single
+// SQL statement. It is implememented as a simple state machine. An
+// execution starts in INITIAL and transitions from state to
+// state by calling functions in a map (stateFunctionMap) indexed by
+// the state code, until it reaches a terminal state, either
+// STATEMENT_COMPLETE or ERROR.
+//
+// INITIAL           (validateStatement)       ->  STATEMENT_VALID
+// STATEMENT_VALID   (createSettings)          ->  SETTINGS_CREATED
+// SETTINGS_CREATED  (generateStatementText)   ->  SQL_GENERATED
+// SQL_GENERATED     (createPreparedStatement) ->  MYSQL_STMT_CREATED  (connects to MySQL service)
+// MSQL_STMT_CREATED (prepareToBind)           ->  BINDINGS_PREPARED
+
+
+
+
 
 MySqlExecution::StateFunctionMap MySqlExecution::stateFunctionMap_ = MySqlExecution::createStateFunctionMap();
 int MySqlExecution::nextExecutionHandle_= 1;
@@ -24,7 +41,7 @@ MySqlExecution::MySqlExecution(const char *          statementName,
     requestSequence_(0),
     statementName_(statementName),
     args_(args),
-    settings_(NULL),
+    argDoc_(NULL),
     statementHandle_(NULL),
     isAutoCommit_(conn->impl_->isAutoCommit()),
     rc_(-1),
@@ -58,8 +75,8 @@ MySqlExecution::createStateFunctionMap()
 {
     StateFunctionMap stateFunctionMap;
     stateFunctionMap[INITIAL_STATE]            = MySqlExecution::validateStatement;
-    stateFunctionMap[STATEMENT_VALID_STATE]    = MySqlExecution::createBindings;
-    stateFunctionMap[BINDINGS_CREATED_STATE]   = MySqlExecution::generateStatementText;
+    stateFunctionMap[STATEMENT_VALID_STATE]    = MySqlExecution::createSettings;
+    stateFunctionMap[SETTINGS_CREATED_STATE]   = MySqlExecution::generateStatementText;
     stateFunctionMap[SQL_GENERATED_STATE]      = MySqlExecution::createPreparedStatement;
     stateFunctionMap[MYSQL_STMT_CREATED_STATE] = MySqlExecution::prepareToBind;
     stateFunctionMap[BINDINGS_PREPARED_STATE]  = MySqlExecution::bindParameters;
@@ -121,6 +138,8 @@ MySqlExecution::isTerminalState(ExecutionState state)
     return true;
 }
 
+// Read the SQL statement text from the JSON SQL dictionary specfied
+// when the connection was created
 int 
 MySqlExecution::validateStatement()
 {
@@ -142,8 +161,14 @@ MySqlExecution::validateStatement()
     return changeState(STATEMENT_VALID_STATE);
 }
 
+// Merge the parameter declarations in the statement JSON object with the
+// argument values passed to the execution constructor. The output is an
+// array containing an object for each parameter. An object in this array
+// contains the parameter name, the type (MARKER or SUBSTITUTE), the MySQL
+// data type, and the value. Parameter values can be passed either as a
+// va_list or a JSON name/value object.
 int 
-MySqlExecution::createBindings()
+MySqlExecution::createSettings()
 {
     stringstream errorMessage;
     const rapidjson::Value & statement =  conn_->getStatements()["statements"][statementName_.c_str()];
@@ -159,13 +184,14 @@ MySqlExecution::createBindings()
         return 0;
     }
 
-    // initialize the parameter bindings document
+    // initialize the parameter settings document
     if (args_ == NULL)
     {
         errorMessage << "No arguments passed for statement \'" << statementName_ << "\'";
         return reportError(errorMessage);
     }
-    bindings_.SetObject();
+    settings_.SetObject();
+    
     const rapidjson::Value & parameters = statement["parameters"];
     if (!parameters.IsArray())
     {
@@ -185,7 +211,7 @@ MySqlExecution::createBindings()
         const Value & parameterAttrs = *itr;
         const string & parameterName = parameterAttrs["name"].GetString();
 
-        Value boundParameter(kObjectType);
+        Value parameterSetting(kObjectType);
 
         // set the parameter type code (MARKER or SUBSTITUTE)
         if (!parameterAttrs.HasMember("param_type"))
@@ -207,9 +233,9 @@ MySqlExecution::createBindings()
                          << " for statement " << statementName_;
             return reportError(errorMessage);
         }
-        boundParameter.AddMember("param_type", parameterTypeCode, bindings_.GetAllocator());
+        parameterSetting.AddMember("param_type", parameterTypeCode, settings_.GetAllocator());
 
-        // set the parameter datatype and value
+        // set the parameter datatype 
         if (!parameterAttrs.HasMember("data_type"))
         {
             errorMessage << "data_type missing in definition of parameter " << parameterName
@@ -239,57 +265,64 @@ MySqlExecution::createBindings()
                          << " for statement " << statementName_;
             return reportError(errorMessage);
         }
-        boundParameter.AddMember("param_data_type", dataTypeCode, bindings_.GetAllocator());
+        parameterSetting.AddMember("param_data_type", dataTypeCode, settings_.GetAllocator());
 
-        // add the bound parameter to the bindings doc
+        // add the setting to the settings doc
         Value parameterNameValue(kStringType);
         parameterNameValue.SetString(parameterName.c_str(), parameterName.size(), results_.GetAllocator());
-        bindings_.AddMember(parameterNameValue, boundParameter, bindings_.GetAllocator());
+        settings_.AddMember(parameterNameValue, parameterSetting, settings_.GetAllocator());
 
     }  // end loop through parameters
 
-    // Add the values passed by caller to the parameters doc. 
-    // We expact 2N arguments, N tag/value pairs. 
+    // Add the values passed by caller to the settings doc. 
     // The arguments can either be in a C va_list or in a json doc.
-    Value::ConstMemberIterator itrsetting;
-    if (settings_ != NULL) itrsetting = settings_->MemberBegin();
-    int bindingCount = bindings_.MemberCount();
-    for (int i = 0; i < bindingCount; i++)
+    // Arguments may be omitted. If the va_list is incomplete,
+    // the last argument should be "end"
+    Value::ConstMemberIterator itrarg;
+    if (argDoc_ != NULL) itrarg = argDoc_->MemberBegin();
+    int settingCount = settings_.MemberCount();
+    for (int i = 0; i < settingCount; i++)
     {
         const char * tag;
-        if (settings_ == NULL)
+        if (argDoc_ == NULL)
+        {
             tag = va_arg(args_, char *);
+            if (strcmp(tag, "end") == 0) break;
+        }
         else
-            tag = itrsetting->name.GetString();
-        Value::MemberIterator itertag = bindings_.FindMember(tag);
-        if (itertag == bindings_.MemberEnd())
+        {
+            if (itrarg == argDoc_->MemberEnd()) break;
+            tag = itrarg->name.GetString();
+        }
+        Value::MemberIterator itertag = settings_.FindMember(tag);
+        if (itertag == settings_.MemberEnd())
         {
             errorMessage << "Unknown parameter \'" << tag << "\'"
                          << " for statement " << statementName_;
             return reportError(errorMessage);
         }
-        Value & boundParameter = itertag->value;
-        enum enum_field_types dataTypeCode = static_cast<enum enum_field_types>(boundParameter["param_data_type"].GetInt());
+        Value & setting = itertag->value;
+        enum enum_field_types dataTypeCode = static_cast<enum enum_field_types>(setting["param_data_type"].GetInt());
         switch (dataTypeCode)
         {
             case MYSQL_TYPE_LONG:
             {
-                int intValue = settings_ ? itrsetting++->value.GetInt() : va_arg(args_, int);
-                boundParameter.AddMember("param_value", intValue, bindings_.GetAllocator());
+                int intValue = argDoc_ ? itrarg++->value.GetInt() : va_arg(args_, int);
+                setting.AddMember("param_value", intValue, settings_.GetAllocator());
                 break;
             }
             case MYSQL_TYPE_DOUBLE:
             {
-                double doubleValue = settings_ ? itrsetting++->value.GetDouble() : va_arg(args_, double);
-                boundParameter.AddMember("param_value", doubleValue, bindings_.GetAllocator());
+                double doubleValue = argDoc_ ? itrarg++->value.GetDouble() : va_arg(args_, double);
+                setting.AddMember("param_value", doubleValue, settings_.GetAllocator());
                 break;
             }
             case MYSQL_TYPE_STRING:
             {
-                char * stringArg = settings_ ? const_cast<char *>(itrsetting++->value.GetString()) : va_arg(args_, char *);
+                char * stringArg = argDoc_ ? const_cast<char *>(itrarg++->value.GetString()) : va_arg(args_, char *);
 	        Value stringValue(kStringType);
-	        stringValue.SetString(stringArg, strlen(stringArg), bindings_.GetAllocator());
-                boundParameter.AddMember("param_value", stringValue, bindings_.GetAllocator());
+	        stringValue.SetString(stringArg, strlen(stringArg), settings_.GetAllocator());
+                setting.AddMember("param_value", stringValue, settings_.GetAllocator());
                 break;
             }
             case MYSQL_TYPE_DATE:
@@ -297,12 +330,12 @@ MySqlExecution::createBindings()
             case MYSQL_TYPE_DATETIME:
             case MYSQL_TYPE_TIMESTAMP:
             {
-                char * timeArg = settings_ ? const_cast<char *>(itrsetting++->value.GetString()) : va_arg(args_, char *);
+                char * timeArg = argDoc_ ? const_cast<char *>(itrarg++->value.GetString()) : va_arg(args_, char *);
                 int rc = stringToMySqlTime(timeArg, dataTypeCode, NULL);
                 if (rc > 0) return rc;
 	        Value timeValue(kStringType);
-	        timeValue.SetString(timeArg, strlen(timeArg), bindings_.GetAllocator());
-                boundParameter.AddMember("param_value", timeValue, bindings_.GetAllocator());
+	        timeValue.SetString(timeArg, strlen(timeArg), settings_.GetAllocator());
+                setting.AddMember("param_value", timeValue, settings_.GetAllocator());
                 break;
             }
         }
@@ -311,9 +344,11 @@ MySqlExecution::createBindings()
     va_end(args_);
     args_ = NULL;
 
-    return changeState(BINDINGS_CREATED_STATE);
+    return changeState(SETTINGS_CREATED_STATE);
 }
 
+// Replace any substitution parameters in the SQL text
+// with the parameter values in the settings list
 int
 MySqlExecution::generateStatementText()
 {
@@ -336,17 +371,17 @@ MySqlExecution::generateStatementText()
     string statementText(statementStream.str());
 
     // perform substitutions
-    for (Value::ConstMemberIterator itrbind = bindings_.MemberBegin();
-    	 itrbind != bindings_.MemberEnd();
-	 ++itrbind)
+    for (Value::ConstMemberIterator itrsetting = settings_.MemberBegin();
+    	 itrsetting != settings_.MemberEnd();
+	 ++itrsetting)
     {
-       const Value & binding = itrbind->value;
-        if (binding["param_type"] == SUBSTITUTE)
+        const Value & setting = itrsetting->value;
+        if (setting["param_type"] == SUBSTITUTE)
         {
             stringstream patternStream;
-            patternStream << "@" << itrbind->name.GetString();
+            patternStream << "@" << itrsetting->name.GetString();
             regex pattern(patternStream.str());
-            statementText = regex_replace(statementText, pattern, binding["param_value"].GetString()); 
+            statementText = regex_replace(statementText, pattern, setting["param_value"].GetString()); 
         }
     }
 
@@ -409,10 +444,10 @@ MySqlExecution::createPreparedStatement()
     paramCount_ = mysql_stmt_param_count(statementHandle_);
 
     // if mysql found no params, confirm that the user didn't pass any
-    if (paramCount_ == 0 && bindings_.MemberCount() > 0)
+    if (paramCount_ == 0 && settings_.MemberCount() > 0)
     {
-        for (Value::ConstMemberIterator itrbind = bindings_.MemberBegin();
-    	     itrbind != bindings_.MemberEnd();
+        for (Value::ConstMemberIterator itrbind = settings_.MemberBegin();
+    	     itrbind != settings_.MemberEnd();
 	     ++itrbind)
         {
             const Value & binding = itrbind->value;
@@ -429,12 +464,12 @@ MySqlExecution::createPreparedStatement()
     if (paramCount_ > 0)
     {
         int parametersPassed = 0;
-        for (Value::ConstMemberIterator itrbind = bindings_.MemberBegin();
-    	     itrbind != bindings_.MemberEnd();
-	     ++itrbind)
+        for (Value::ConstMemberIterator itrsetting = settings_.MemberBegin();
+    	     itrsetting != settings_.MemberEnd();
+	     ++itrsetting)
         {
-            const Value & binding = itrbind->value;
-            if (binding["param_type"] == MARKER) 
+            const Value & setting = itrsetting->value;
+            if (setting["param_type"] == MARKER) 
                 parametersPassed++;
         }
         if (parametersPassed != paramCount_)
@@ -447,6 +482,8 @@ MySqlExecution::createPreparedStatement()
     return changeState(MYSQL_STMT_CREATED_STATE);
 }
 
+// Allocate arrays of MYSQL_BIND structs for parameters and results 
+// on the heap. If there are parameters, 
 int 
 MySqlExecution::prepareToBind()
 {
@@ -466,14 +503,14 @@ MySqlExecution::prepareToBind()
 
         // first loop through params to determine buffer size
         MYSQL_BIND * parameterBind = parameterBindArray_;
-        for (Value::ConstMemberIterator itrbind = bindings_.MemberBegin();
-             itrbind != bindings_.MemberEnd();
-	     ++itrbind)
+        for (Value::ConstMemberIterator itrsetting = settings_.MemberBegin();
+             itrsetting != settings_.MemberEnd();
+	     ++itrsetting)
         {
-            const Value & binding = itrbind->value;
-            if (binding["param_type"] == MARKER)
+            const Value & setting = itrsetting->value;
+            if (setting["param_type"] == MARKER)
             {
-                paramBufferLen_ += bindParameter(binding, parameterBind, paramBuffer_);
+                paramBufferLen_ += bindParameter(setting, parameterBind, paramBuffer_);
                 parameterBind++;
             }
         }
@@ -485,14 +522,14 @@ MySqlExecution::prepareToBind()
             memset(paramBuffer_, 0, paramBufferLen_);
             char * valuePtr = paramBuffer_;
             MYSQL_BIND * parameterBind = parameterBindArray_;
-            for (Value::ConstMemberIterator itrbind = bindings_.MemberBegin();
-                itrbind != bindings_.MemberEnd();
-	        ++itrbind)
+            for (Value::ConstMemberIterator itrsetting = settings_.MemberBegin();
+                itrsetting != settings_.MemberEnd();
+	        ++itrsetting)
             {
-                const Value & binding = itrbind->value;
-                if (binding["param_type"] == MARKER)
+                const Value & setting = itrsetting->value;
+                if (setting["param_type"] == MARKER)
                 {
-                    bindParameter(binding, parameterBind, valuePtr);
+                    bindParameter(setting, parameterBind, valuePtr);
                     parameterBind++;
                 }
             } 
@@ -741,11 +778,11 @@ MySqlExecution::cleanup()
 // to determine  the space required for the value, and second, with a buffer.
 // to set up for the mysql_stmt_bind_param call.
 int
-MySqlExecution::bindParameter(const Value & binding, MYSQL_BIND * parameterBind, char *& buffer)
+MySqlExecution::bindParameter(const Value & setting, MYSQL_BIND * parameterBind, char *& buffer)
 {
-    enum enum_field_types dataTypeCode = static_cast<enum enum_field_types>(binding["param_data_type"].GetInt());
+    enum enum_field_types dataTypeCode = static_cast<enum enum_field_types>(setting["param_data_type"].GetInt());
     parameterBind->buffer_type = dataTypeCode;
-    const Value & paramValue = binding["param_value"];
+    bool hasValue = setting.HasMember("param_value");
     int bufferSpaceRequired = 0;
     switch (dataTypeCode)
     {
@@ -755,11 +792,20 @@ MySqlExecution::bindParameter(const Value & binding, MYSQL_BIND * parameterBind,
             if (buffer != NULL)
             {
                 long * intValue = reinterpret_cast<long *>(buffer);
-                *intValue = paramValue.GetInt();
+                if (hasValue)
+                {
+                    const Value & paramValue = setting["param_value"];
+                    *intValue = paramValue.GetInt();
+                    parameterBind->is_null = &mysqlFalse_;
+                }
+                else
+                {
+                    *intValue = 0;
+                    parameterBind->is_null = &mysqlTrue_;
+                }
                 parameterBind->buffer = static_cast<void *>(buffer);
                 parameterBind->buffer_length = sizeof(long);
                 parameterBind->length = NULL;
-                parameterBind->is_null = &mysqlFalse_;
             }
             break;
         }
@@ -768,22 +814,42 @@ MySqlExecution::bindParameter(const Value & binding, MYSQL_BIND * parameterBind,
             if (buffer != NULL)
             {
                 double * doubleValue = reinterpret_cast<double *>(buffer);
-                *doubleValue = paramValue.GetDouble();
+                if (hasValue)
+                {
+                    const Value & paramValue = setting["param_value"];
+                    *doubleValue = paramValue.GetDouble();
+                    parameterBind->is_null = &mysqlFalse_;
+                }
+                else
+                {
+                    *doubleValue = 0;
+                    parameterBind->is_null = &mysqlTrue_;
+                }
                 parameterBind->buffer = static_cast<void *>(buffer);
                 parameterBind->buffer_length = sizeof(double);
                 parameterBind->length = NULL;
-                parameterBind->is_null = &mysqlFalse_;
             }
             break;
 
         case MYSQL_TYPE_STRING:
         {
             bufferSpaceRequired = 0;
-            char * stringValue = const_cast<char *>(paramValue.GetString());
-            parameterBind->buffer = static_cast<void *>(stringValue);
-            parameterBind->buffer_length = strlen(stringValue);
-            parameterBind->length = NULL;
-            parameterBind->is_null = &mysqlFalse_;
+            if (hasValue)
+            {
+                const Value & paramValue = setting["param_value"];
+                char * stringValue = const_cast<char *>(paramValue.GetString());
+                parameterBind->buffer = static_cast<void *>(stringValue);
+                parameterBind->buffer_length = strlen(stringValue);
+                parameterBind->length = NULL;
+                parameterBind->is_null = &mysqlFalse_;
+            }
+            else
+            {
+                parameterBind->buffer = NULL;
+                parameterBind->buffer_length = 0;
+                parameterBind->length = NULL;
+                parameterBind->is_null = &mysqlTrue_;
+            }
             break;
         }
 
@@ -795,19 +861,20 @@ MySqlExecution::bindParameter(const Value & binding, MYSQL_BIND * parameterBind,
             bufferSpaceRequired = sizeof(MYSQL_TIME);
             if (buffer != NULL)
             {
-                MYSQL_TIME * mysqlTimeValue = reinterpret_cast<MYSQL_TIME *>(buffer);
-                const char * timeArg = paramValue.GetString();
-                int rc = stringToMySqlTime(timeArg, dataTypeCode, mysqlTimeValue);
-                if (rc == 0)
+                parameterBind->is_null = &mysqlTrue_;
+                if (hasValue)
                 {
-                    parameterBind->buffer = static_cast<void *>(buffer);
-                    parameterBind->buffer_length = sizeof(MYSQL_TIME);
-                    parameterBind->length = NULL;
-                    parameterBind->is_null = &mysqlFalse_;
-                }
-                else if (rc < 0) // not-a-date-time
-                {
-                    parameterBind->is_null = &mysqlTrue_;
+                    const Value & paramValue = setting["param_value"];
+                    MYSQL_TIME * mysqlTimeValue = reinterpret_cast<MYSQL_TIME *>(buffer);
+                    const char * timeArg = paramValue.GetString();
+                    int rc = stringToMySqlTime(timeArg, dataTypeCode, mysqlTimeValue);
+                    if (rc == 0)
+                    {
+                        parameterBind->buffer = static_cast<void *>(buffer);
+                        parameterBind->buffer_length = sizeof(MYSQL_TIME);
+                        parameterBind->length = NULL;
+                        parameterBind->is_null = &mysqlFalse_;
+                    }
                 }
             }
         }
@@ -1088,10 +1155,21 @@ MySqlExecution::toJson()
     Value textValue(statementText_.c_str(), statementText_.size(), dom_.GetAllocator());
     dom_.AddMember("statement_text", textValue, dom_.GetAllocator());
 
-    // program
-    const char * program = conn_->getProgram();
-    Value programValue(program, strlen(program), dom_.GetAllocator());
-    dom_.AddMember("program", programValue, dom_.GetAllocator());
+    // program (used for audit filtering)
+    string program = conn_->getCurrentProgram();
+    if (!program.empty())
+    {
+        Value programValue(program.c_str(), program.size(), dom_.GetAllocator());
+        dom_.AddMember("program", programValue, dom_.GetAllocator());
+    }
+
+    // transaction(used for audit filtering)
+    const string & transaction = conn_->getCurrentTransaction();
+    if (!transaction.empty())
+    {
+        Value transactionValue(transaction.c_str(), transaction.size(), dom_.GetAllocator());
+        dom_.AddMember("transaction", transactionValue, dom_.GetAllocator());
+    }
 
     // state (used by replay)
     dom_.AddMember("state", getState(), dom_.GetAllocator());
@@ -1133,11 +1211,11 @@ MySqlExecution::toJson()
     dom_.AddMember("complete_time", completeTimeValue, dom_.GetAllocator());
 
     // copy in the dom containing the parameter names and values 
-    if (bindings_.IsObject() && !bindings_.ObjectEmpty())
+    if (settings_.IsObject() && !settings_.ObjectEmpty())
     {
-        Value bindings(kObjectType);
-        bindings.CopyFrom(bindings_, dom_.GetAllocator());
-        dom_.AddMember("parameters", bindings, dom_.GetAllocator());
+        Value settings(kObjectType);
+        settings.CopyFrom(settings_, dom_.GetAllocator());
+        dom_.AddMember("parameters", settings, dom_.GetAllocator());
     }
 
     // copy in the dom containing the results
@@ -1240,23 +1318,27 @@ MySqlExecution::reportError(const string & errorMessage, int errorNo)
 ostream & operator<<(ostream & o, const MySqlExecution & execution)
 {
     string arguments;
-    const Document & bindings = execution.getBindings();
+    const Document & settings = execution.getSettings();
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<StringBuffer> writer(buffer);
-    for (Value::ConstMemberIterator itrbind = bindings.MemberBegin();
-         itrbind != bindings.MemberEnd();
-	 ++itrbind)
+    for (Value::ConstMemberIterator itrsetting = settings.MemberBegin();
+         itrsetting != settings.MemberEnd();
+	 ++itrsetting)
     {
         buffer.Clear();
         writer.Reset(buffer);
-        const Value & binding = itrbind->value;
-        const Value & arg = binding["param_value"];
-        arg.Accept(writer);
-        string argstring(buffer.GetString());
-	if (argstring.size() > 64)
+        const Value & setting = itrsetting->value;
+        string argstring;
+	if (setting.HasMember("param_value"))
 	{
-            size_t seploc = argstring.find_first_of(" :.;\r\n\t");
-            argstring = argstring.substr(0, seploc) + "...";
+            const Value & arg = setting["param_value"];
+            arg.Accept(writer);
+            argstring = buffer.GetString();
+	    if (argstring.size() > 64)
+	    {
+                size_t seploc = argstring.find_first_of(" :.;\r\n\t");
+                argstring = argstring.substr(0, seploc) + "...";
+            }
         }
         if (!arguments.empty()) arguments += ", ";
         arguments += argstring;
