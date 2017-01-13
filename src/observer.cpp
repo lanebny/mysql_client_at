@@ -123,6 +123,7 @@ AuditObserver::AuditObserver(const char *                name,
 		             const rapidjson::Document * params,
 		             MySqlConnection *           conn)
 :  MySqlObserver(name, params, conn),
+   insertStatement_("insert_audit_record"),
    isAuditing_(false)
 {
     if (conn->isReplay()) return;  // don't audit unit tests
@@ -145,6 +146,11 @@ AuditObserver::AuditObserver(const char *                name,
     auditTableName_ = itr->value.GetString();
     itr = params->FindMember("sql");
     auditSqlPath_ = itr->value.GetString();
+    if (params->HasMember("insert_statement"))
+    {
+        itr = params->FindMember("insert_statement");
+        insertStatement_ = itr->value.GetString();
+    }
 
     // Connect to the database containing the audit table,
     // using the credentials from the main connection
@@ -177,9 +183,10 @@ AuditObserver::prepareToAudit()
     }
 
     const rapidjson::Value & statements =  auditConn_->getStatements()["statements"];
-    if (!statements.HasMember("insert_audit_record"))
+    if (!statements.HasMember(insertStatement_.c_str()))
     {
-        CONN_LOG(auditConn_, error) << "SQL dictionary " << auditSqlPath_ << " does not include insert_audit_record statement";
+        CONN_LOG(auditConn_, error) << "SQL dictionary " << auditSqlPath_ 
+                                    << " does not include " << insertStatement_ << " statement";
         return false;
     }
 
@@ -207,8 +214,7 @@ AuditObserver::startProgram(const char * programName)
 
 // If the execution is transitioning from a non-terminal state to a 
 // terminal state (either EXECUTION_COMPLETE or ERROR), then 
-// serialize to json, populate the audit-record fields from the json doc,
-// and write a record to the audit table
+// add an audit record.
 MySqlExecution::ExecutionState   
 AuditObserver::onEvent(MySqlExecution * execution, ExecutionState newState)
 {
@@ -220,62 +226,95 @@ AuditObserver::onEvent(MySqlExecution * execution, ExecutionState newState)
         return newState;
     
     const rapidjson::Document & dom = execution->asJson();
+    insertRecord("EXECUTE", &dom);
 
-    // Construct a json object containing the parameter settings for the 
-    // insert-record statement from statement parameters and the json doc
-    // representing the execution. Each parameter name should correspond 
-    // to a member of the doc.
-    rapidjson::Document insertParameters;
-    insertParameters.SetObject();
+    return newState;
+}
+
+
+// If the event is COMMIT or ROLLBACK, add an audit record
+void
+AuditObserver::onEvent(AuditEventType event, MySqlExecution * execution)
+{
+    if (!isAuditing_) return;
+    if (event != AUDIT_COMMIT && event != AUDIT_ROLLBACK) return;
+    insertRecord(event == AUDIT_COMMIT ? "COMMIT" : "ROLLBACK");
+}
+
+// Construct a json object containing the arguments for the 
+// insert-record statement from statement parameters and the json doc
+// representing the execution. Each parameter name should correspond 
+// to a member of the doc.
+void
+AuditObserver::insertRecord(const char * event, const rapidjson::Document * executionDom)
+{
+    rapidjson::Document insertArgs;
+    insertArgs.SetObject();
+    Value eventValue(event, strlen(event), insertArgs.GetAllocator());
+    insertArgs.AddMember("event", eventValue, insertArgs.GetAllocator());
+
     const rapidjson::Value & statements =  auditConn_->getStatements()["statements"];
-    const rapidjson::Value & insertStatement = statements["insert_audit_record"];
-    const rapidjson::Value & insertFields = insertStatement["parameters"];
+    const rapidjson::Value & insertStatement = statements[insertStatement_.c_str()];
+    const rapidjson::Value & insertParams = insertStatement["parameters"];
 
-    for (rapidjson::Value::ConstValueIterator itrfield = insertFields.Begin();
-         itrfield != insertFields.End();
-         ++itrfield)
+    for (rapidjson::Value::ConstValueIterator itrparm = insertParams.Begin();
+         itrparm != insertParams.End();
+         ++itrparm)
     {
-        const rapidjson::Value & fieldAttrs = *itrfield;
-        const string & fieldName = fieldAttrs["name"].GetString();
+        const rapidjson::Value & paramAttrs = *itrparm;
+        const string & paramName = paramAttrs["name"].GetString();
 
-        if (fieldName == "table_name") 
+        if (paramName == "table_name") 
         {
-            Value tableName(auditTableName_.c_str(), auditTableName_.size(), insertParameters.GetAllocator());
-            insertParameters.AddMember("table_name", tableName, insertParameters.GetAllocator());
+            Value tableName(auditTableName_.c_str(), auditTableName_.size(), insertArgs.GetAllocator());
+            insertArgs.AddMember("table_name", tableName, insertArgs.GetAllocator());
             continue;
         }
+        else if (paramName == "program")
+        {
+            const string program = conn_->getCurrentProgram();
+            if (!program.empty())
+            {
+                Value programValue(program.c_str(), program.size(), insertArgs.GetAllocator());
+                insertArgs.AddMember("program", programValue, insertArgs.GetAllocator());
+            }
+            continue;
+        }
+        else if (paramName == "transaction")
+        {
+            const string transaction = conn_->getCurrentTransaction();
+            if (!transaction.empty())
+            {
+                Value transactionValue(transaction.c_str(), transaction.size(), insertArgs.GetAllocator());
+                insertArgs.AddMember("transaction", transactionValue, insertArgs.GetAllocator());
+            }
+            continue;
+        }
+        
+        if (executionDom == NULL) continue;
+        rapidjson::Value::ConstMemberIterator itrvalue = executionDom->FindMember(paramName.c_str());
+        if (itrvalue == executionDom->MemberEnd()) continue;  
 
-        rapidjson::Value::ConstMemberIterator itrvalue = dom.FindMember(fieldName.c_str());
-        if (itrvalue == dom.MemberEnd())
-	    continue;  
         Value parameterName;
-        parameterName.CopyFrom(itrvalue->name, insertParameters.GetAllocator());
+        parameterName.CopyFrom(itrvalue->name, insertArgs.GetAllocator());
         Value parameterValue;
-        parameterValue.CopyFrom(itrvalue->value, insertParameters.GetAllocator());
-
-        stringstream logSetting;
-        logSetting << itrvalue->name.GetString() << " : ";
-        MySqlConnectionImpl::printValue(parameterValue, logSetting);
-        EX_LOG(conn_, execution, trace) << logSetting.str();
+        parameterValue.CopyFrom(itrvalue->value, insertArgs.GetAllocator());
 
         // If it's a scalar value, write it out as is
         if (!parameterValue.IsObject() && !parameterValue.IsArray())
-            insertParameters.AddMember(parameterName, parameterValue, insertParameters.GetAllocator());
+            insertArgs.AddMember(parameterName, parameterValue, insertArgs.GetAllocator());
         // If it's an object or array, serialize it to json and write it as a string field
 	else
         {
             stringstream valueStream;
             MySqlConnectionImpl::printValue(parameterValue, valueStream);
-            Value complexValue(valueStream.str().c_str(), valueStream.str().size(), insertParameters.GetAllocator());
-            insertParameters.AddMember(parameterName, complexValue, insertParameters.GetAllocator());
+            Value complexValue(valueStream.str().c_str(), valueStream.str().size(), insertArgs.GetAllocator());
+            insertArgs.AddMember(parameterName, complexValue, insertArgs.GetAllocator());
         }
     }
 
     // insert the record
-    auditConn_->executeJson("insert_audit_record", &insertParameters);
-    int rc = auditConn_->getReturnCode();
-
-    return newState;
+    auditConn_->executeJson(insertStatement_.c_str(), &insertArgs);
 }
 
 void

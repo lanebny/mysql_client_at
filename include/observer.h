@@ -30,20 +30,21 @@ public:
     virtual ~MySqlObserver();
 
 public:
-    virtual void              startProgram(const char * programName);
-    virtual ExecutionState    onEvent(MySqlExecution * execution, ExecutionState newState) = 0;
-    virtual void              endProgram(const char * programName);
-    virtual ObserverType      getObserverType() const = 0;
+    virtual void            startProgram(const char * programName);
+    virtual ExecutionState  onEvent(MySqlExecution * execution, ExecutionState newState) = 0;
+    virtual void            onEvent(AuditEventType event, MySqlExecution * execution = NULL) {};
+    virtual void            endProgram(const char * programName);
+    virtual ObserverType    getObserverType() const = 0;
 
 protected:
-    void                      getWorkingDirectory(const rapidjson::Document * params);
-    string                    getProgramPath();
+    void                    getWorkingDirectory(const rapidjson::Document * params);
+    string                  getProgramPath();
     
 protected:
-    const char *              name_;
-    MySqlConnection *         conn_;
-    string                    currentProgram_;
-    string                    workingDirectory_;
+    const char *            name_;
+    MySqlConnection *       conn_;
+    string                  currentProgram_;
+    string                  workingDirectory_;
     
 };
 
@@ -60,17 +61,20 @@ public:
 public:
     virtual void                 startProgram(const char * programName);
     virtual ExecutionState       onEvent(MySqlExecution * execution, ExecutionState newState);
+    virtual void                 onEvent(AuditEventType event, MySqlExecution * execution = NULL);
     virtual void                 endProgram(const char * programName);
     virtual ObserverType         getObserverType() const  {  return AUDIT_OBS; }
 
 private:
     bool                         prepareToAudit();
+    void                         insertRecord(const char * event, const rapidjson::Document * executionDom = NULL);
 
 private:
     string                       auditDatabaseName_;
     string                       auditTableName_;
     string                       auditSqlPath_;
     unique_ptr<MySqlConnection>  auditConn_;  // connection for reading and writing audit records
+    string                       insertStatement_;
     bool                         isAuditing_;
 };
 

@@ -341,7 +341,7 @@ def print_rows(rows):
     line_length = sum(column_widths) + 2 * column_count
     row_strings = []
     # print as grid
-    if line_length < 150:
+    if line_length < 180:
         heading_strings = ["\n"]
         for i in range(column_count):
             padding = (column_widths[i] - len(column_names[i]))*' '
@@ -352,7 +352,7 @@ def print_rows(rows):
             value_strings = []
             for i in range(column_count):
                 value = row[i]
-                value_string = str(value)
+                value_string = str(value) if value is not None else ''
                 padding = (column_widths[i] - len(value_string))*' '
                 if isinstance(value, int) or isinstance(value, float):
                     value_strings.append(" {}{} ".format(padding, value_string))

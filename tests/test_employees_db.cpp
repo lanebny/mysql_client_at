@@ -50,7 +50,7 @@ TEST_F(EmployeesDbTest, AddEmployee)
         auditParams.SetObject();
         auditParams.AddMember("database", "employees", auditParams.GetAllocator());      
         auditParams.AddMember("table_name", "audit_test", auditParams.GetAllocator());   
-        auditParams.AddMember("sql", "audit_employees.json", auditParams.GetAllocator());
+        auditParams.AddMember("sql", "audit.json", auditParams.GetAllocator());
         conn_->addObserver("audit", AUDIT_OBS, &auditParams);
     }
     

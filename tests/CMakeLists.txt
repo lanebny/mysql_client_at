@@ -4,5 +4,5 @@ include_directories("../.." "../googletest/googletest/include" "/usr/include/mys
 add_executable(test_employees_db ${TEST_EMPLOYEES_DB})
 target_link_libraries(test_employees_db mysql_client_at employees_db gtest gtest_main)
 configure_file(${SQL_DIR}/employees.json ${CMAKE_CURRENT_BINARY_DIR}/employees.json COPYONLY)				
-configure_file(${SQL_DIR}/audit_employees.json ${CMAKE_CURRENT_BINARY_DIR}/audit_employees.json COPYONLY)			
+configure_file(${SQL_DIR}/audit.json ${CMAKE_CURRENT_BINARY_DIR}/audit.json COPYONLY)			
 configure_file(test_employees_db_input.json ${CMAKE_CURRENT_BINARY_DIR}/test_employees_db_input.json COPYONLY)				

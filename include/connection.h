@@ -53,6 +53,13 @@ class ExecutionThread;
 
 //                                   T Y P E D E F S  /  E N U M S
 
+enum AuditEventType
+{
+    AUDIT_EXECUTE = 1,
+    AUDIT_COMMIT,
+    AUDIT_ROLLBACK
+};
+
 enum ObserverType
 {
     AUDIT_OBS = 1,

@@ -361,6 +361,12 @@ MySqlConnection::commitTransaction()
     int rc = impl_->commit();
     if (rc == 0) 
     {
+        for (MySqlConnection::ObserverList::iterator itrobs = observers_.begin();
+             itrobs != observers_.end();
+             ++itrobs)
+        {
+            (*itrobs)->onEvent(AUDIT_COMMIT);
+        }
         CONN_LOG(this, info) << "Committed transaction " << transactionName_;
         transactionName_.clear();
     }
@@ -378,6 +384,13 @@ MySqlConnection::rollbackTransaction(const stringstream & reason)
     int rc = impl_->rollback();
     if (rc == 0) 
     {
+        for (MySqlConnection::ObserverList::iterator itrobs = observers_.begin();
+             itrobs != observers_.end();
+             ++itrobs)
+        {
+            (*itrobs)->onEvent(AUDIT_ROLLBACK);
+        }
+        
         CONN_LOG(this, info) << "Rolled back transaction " << transactionName_ 
                              << ": " << reason.str();
         transactionName_.clear();
