@@ -332,43 +332,55 @@ def print_rows(rows):
         return
     column_names = rows[0]
     column_count = len(column_names)
+    hidden_columns = [cn for cn in column_names if cn.startswith('_')]
+    color_column = column_names.index("_color") if "_color" in column_names else None
     # first pass through rows to determine column widths
-    column_widths = [len(column_name) for column_name in column_names]
-    max_column_name_width = max(column_widths)
+    visible_columns = OrderedDict([(column_name, [len(column_name), column_names.index(column_name)])
+                      for column_name in column_names if column_name not in hidden_columns ])
+    max_column_name_width = max((v[0] for v in visible_columns.values()))
     for row in rows[1:]:
-        for i in range(column_count):
-            column_widths[i] = max(column_widths[i], len(str(row[i])))
-    line_length = sum(column_widths) + 2 * column_count
+        for column_name in column_names:
+            if column_name in visible_columns:
+                width, index = visible_columns[column_name]
+                visible_columns[column_name][0] = max(width, len(str(row[index])))
+    line_length = sum([v[0] for v in visible_columns.values()]) + 2 * len(visible_columns)
     row_strings = []
     # print as grid
     if line_length < 180:
         heading_strings = ["\n"]
-        for i in range(column_count):
-            padding = (column_widths[i] - len(column_names[i]))*' '
-            heading_strings.append(" {}{} ".format(column_names[i], padding))
+        for column_name, [width, index] in visible_columns.items():
+            padding = (width - len(column_name))*' '
+            heading_strings.append(" {}{} ".format(column_name, padding))
         row_strings.append(''.join(heading_strings))
         row_strings.append('-' * line_length)
         for row in rows[1:]:
             value_strings = []
-            for i in range(column_count):
-                value = row[i]
+            color = row[color_column] if color_column is not None else None
+            if color == "red":
+                value_strings.append("{c.FAIL.value}".format(c=LineColors))
+            elif color == "green":
+                value_strings.append("{c.OKGREEN.value}".format(c=LineColors))
+            for column_name, [width, index] in visible_columns.items():
+                value = row[index]
                 value_string = str(value) if value is not None else ''
-                padding = (column_widths[i] - len(value_string))*' '
+                padding = (width - len(value_string))*' '
                 if isinstance(value, int) or isinstance(value, float):
                     value_strings.append(" {}{} ".format(padding, value_string))
                 else:
                     value_strings.append(" {}{} ".format(value_string, padding))
+            if color is not None:
+                value_strings.append("{c.ENDC.value}".format(c=LineColors))
             row_strings.append(''.join(value_strings))
     # print column-per-line
     else:
         for row in rows[1:]:
             row_strings.append("\n")
-            for i in range(column_count):
-                if row[i] is None or row[i] == '':
+            for column_name, [width, index] in visible_columns.items():
+                if row[index] is None or row[index] == '':
                     continue
-                value_strings = [column_names[i]]
-                value_strings.append((max_column_name_width - len(column_names[i]))*' ')
-                value_strings.append("  {!s}".format(row[i]))
+                value_strings = [column_name]
+                value_strings.append((max_column_name_width - len(column_name))*' ')
+                value_strings.append("  {!s}".format(row[index]))
                 row_strings.append(''.join(value_strings))
     print ('\n'.join(row_strings))
 
