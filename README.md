@@ -10,6 +10,9 @@ MySQL Client AT is a lightweight,  easy-to-use framework for building C++ applic
 ##Separation of Interface and Implementation##
 All SQL statements are stored in JSON files called *SQL dictionaries*. A dictionary entry includes the statement's name and description, the SQL text, and a list of parameters. When an application sets up a database connection, it supplies a database name and SQL dictionary path, and it executes a statement by passing in its name and a list of parameter settings. 
 
+##Audit##
+![Audit Summary](https://github.com/lanebny/mysql_client_at/python/audit_summary.PNG)
+
 
 ##Other Features##
 
