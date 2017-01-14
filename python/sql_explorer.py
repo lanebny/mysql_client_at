@@ -375,12 +375,20 @@ def print_rows(rows):
     else:
         for row in rows[1:]:
             row_strings.append("\n")
+            color = row[color_column] if color_column is not None else None
+            color_start = ''
+            if color == "red":
+                color_start = "{c.FAIL.value}".format(c=LineColors)
+            elif color == "green":
+                color_start = "{c.OKGREEN.value}".format(c=LineColors)
+            color_end = "{c.ENDC.value}".format(c=LineColors) if color else ''
             for column_name, [width, index] in visible_columns.items():
                 if row[index] is None or row[index] == '':
                     continue
-                value_strings = [column_name]
+                value_strings = [color_start, column_name]
                 value_strings.append((max_column_name_width - len(column_name))*' ')
                 value_strings.append("  {!s}".format(row[index]))
+                value_strings.append(color_end)
                 row_strings.append(''.join(value_strings))
     print ('\n'.join(row_strings))
 

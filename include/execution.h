@@ -60,7 +60,8 @@ public:
     typedef ExecutionThread::RequestSequence RequestSequence;
 
 public:
-    MySqlExecution(const char *          statementName, 
+    MySqlExecution(const char *          statementName,
+		   const char *          comment,
 		   va_list &             args,
                    MySqlConnection *     conn,
                    MySqlConnectionImpl * impl);
@@ -78,6 +79,7 @@ public:
     void              setState(ExecutionState newState)             { state_ = newState; }
     bool              isTerminalState(ExecutionState state);
     const string &    getStatementName() const                      { return statementName_; }
+    const string &    getComment() const                            { return comment_; }
     const string &    getStatementText() const                      { return statementText_; } 
     const Document &  getSettings() const                           { return settings_; } 
     int               getRowCount() const                           { return rowCount_; }
@@ -123,6 +125,7 @@ private:
     int                   executionHandle_;
     RequestSequence       requestSequence_;  // assigned by execution thread if connection is async
     string                statementName_;
+    string                comment_;
     va_list &             args_;
     const Document *      argDoc_;
     MYSQL_STMT *          statementHandle_;

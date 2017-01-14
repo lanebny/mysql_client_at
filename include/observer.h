@@ -32,7 +32,7 @@ public:
 public:
     virtual void            startProgram(const char * programName);
     virtual ExecutionState  onEvent(MySqlExecution * execution, ExecutionState newState) = 0;
-    virtual void            onEvent(AuditEventType event, MySqlExecution * execution = NULL) {};
+    virtual void            onEvent(AuditEventType event, const char * comment = NULL, MySqlExecution * execution = NULL) {};
     virtual void            endProgram(const char * programName);
     virtual ObserverType    getObserverType() const = 0;
 
@@ -61,13 +61,15 @@ public:
 public:
     virtual void                 startProgram(const char * programName);
     virtual ExecutionState       onEvent(MySqlExecution * execution, ExecutionState newState);
-    virtual void                 onEvent(AuditEventType event, MySqlExecution * execution = NULL);
+    virtual void                 onEvent(AuditEventType event, const char * comment = NULL, MySqlExecution * execution = NULL);
     virtual void                 endProgram(const char * programName);
     virtual ObserverType         getObserverType() const  {  return AUDIT_OBS; }
 
 private:
     bool                         prepareToAudit();
-    void                         insertRecord(const char * event, const rapidjson::Document * executionDom = NULL);
+    void                         insertRecord(const char *                event,
+					      const rapidjson::Document * executionDom = NULL,
+					      const char *                comment = NULL);
 
 private:
     string                       auditDatabaseName_;

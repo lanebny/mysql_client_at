@@ -11,6 +11,7 @@
 		"  event           CHAR(8), ",
 		"  statement_name  VARCHAR(256) NULL, ",
 		"  program         VARCHAR(256) NULL, ",
+		"  comment         VARCHAR(1024) NULL, ",
 		"  transaction     VARCHAR(256) NULL, ",
 		"  statement_text  VARCHAR(4096) NULL, ",
 		"  parameters      VARCHAR(4096) NULL, ",
@@ -40,6 +41,7 @@
 		"  event, ",
 		"  statement_name, ",
 		"  program, ",
+		"  comment, ",
 		"  transaction, ",
 		"  statement_text, ",
 		"  parameters , ",
@@ -67,6 +69,7 @@
 		"  ?, ",
 		"  ?, ",
 		"  ?, ",
+		"  ?, ",
 		"  ? ",
 		") "
 	    ],
@@ -76,6 +79,7 @@
                 { "name" : "event", "param_type" : "marker", "data_type" : "string" },
                 { "name" : "statement_name", "param_type" : "marker", "data_type" : "string" },
                 { "name" : "program", "param_type" : "marker", "data_type" : "string" },
+                { "name" : "comment", "param_type" : "marker", "data_type" : "string" },
                 { "name" : "transaction", "param_type" : "marker", "data_type" : "string" },
                 { "name" : "statement_text", "param_type" : "marker", "data_type" : "string" },
                 { "name" : "parameters", "param_type" : "marker", "data_type" : "string" },
@@ -103,15 +107,16 @@
                 "   END ",
 		"   AS _color, ",
 		"   id, ",
-		"   DATE_FORMAT(start_time, '%Y-%m-%d %H:%i:%S') as time, ",
+		"   DATE_FORMAT(start_time, '%m/%d %H:%i:%S') as time, ",
 		"   event, ",
 		"   statement_name AS statement, ",
+		"   comment, ",
 		"   transaction, ",
 		"   program, ",
-		"   rows_returned AS returned, ",
+		"   rows_returned AS rows, ",
 		"   rows_affected AS affected, ",
 		"   error_no AS rc, ",
-		"   TIMESTAMPDIFF(microsecond, start_time, complete_time)/1000000 as elapsed ",
+		"   TIMESTAMPDIFF(microsecond, start_time, complete_time)/1000000 as secs ",
 		"FROM @table_name "
 	    ],
 	    "parameters" : 
@@ -124,21 +129,33 @@
 	    ]
 	},
 	
-        "audit_dump_range" :
+        "audit_dump_filtered" :
 	{
 	    "statement_text" :
 	    [
-		"SELECT * ",
+		"SELECT *, ",
+		"   CASE ",
+		"      WHEN event='rollback' OR error_no != 0 ",
+                "      THEN 'red' ",
+		"      WHEN event='commit' ",
+		"      THEN 'green' ",
+                "   END ",
+		"   AS _color, ",
+		"   TIMESTAMPDIFF(microsecond, start_time, complete_time)/1000000 as secs ",
 		"FROM @table_name ",
-		"WHERE id >= ? ",
-		"AND id <= ? "
+		"WHERE @filter"
 	    ],
 	    "parameters" : 
 	    [
                 { "name" : "table_name", "param_type" : "substitute", "data_type" : "string" },
-                { "name" : "first_id", "param_type" : "marker", "data_type" : "int" },
-                { "name" : "last_id", "param_type" : "marker", "data_type" : "int" }
-	    ]
+                { "name" : "filter", "param_type" : "substitute", "data_type" : "string" }
+	    ],
+	    "description" :
+            [
+                "Dumps complete records from an audit table. ",
+                "The filter parameter can be any expression that could follow WHERE ",
+                "in a SELECT statement for the given audit table. "
+            ]
 	}
     }
 }

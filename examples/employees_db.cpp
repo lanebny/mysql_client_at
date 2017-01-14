@@ -21,7 +21,8 @@ addEmployee(int               employeeNumber,
     int rc;
 
     // confirm that no current employee has this employee number
-    conn->execute("get_employee_by_emp_no", 
+    conn->execute("get_employee_by_emp_no",
+		  "Conrirm no employee with new emp_no",
                   "emp_no", employeeNumber);
     rc = conn->getReturnCode();
     if (rc != 0) return rc;
@@ -29,6 +30,7 @@ addEmployee(int               employeeNumber,
 
     // make sure the hire date is valid and is in the recent past
     conn->execute("days_from_now",
+		  "Confirm recent hire date",
                   "date_string", hireDate);
     rc = conn->getReturnCode();
     if (rc != 0) return rc;
@@ -49,6 +51,7 @@ addEmployee(int               employeeNumber,
     
     // validate the department name
     conn->execute("get_dept_by_dept_no",
+		  "Confirm valid dept_no",
                   "dept_no", department);
     rc = conn->getReturnCode();
     if (rc != 0) return rc;
@@ -56,6 +59,7 @@ addEmployee(int               employeeNumber,
 
     // sanity-check the salary
     conn->execute("salary_range_for_dept",
+		  "Confirm reasonable salary",
                   "dept_no", department);
     rc = conn->getReturnCode();
     if (rc != 0) return rc;
@@ -76,6 +80,7 @@ addEmployee(int               employeeNumber,
 
     // add the employee to the employee table
     conn->execute("add_employee_to_employee_table",
+		  "",
                   "emp_no", employeeNumber,
                   "birth_date", birthDate,
                   "first_name", firstName,
@@ -88,6 +93,7 @@ addEmployee(int               employeeNumber,
 
     // assign the employee to the department
     conn->execute("assign_employee_to_department",
+		  "",
                   "emp_no", employeeNumber,
                   "dept_no", department,
                   "from_date", hireDate,
@@ -98,6 +104,7 @@ addEmployee(int               employeeNumber,
 
     // set the employee's salary
     conn->execute("set_employee_salary",
+		  "",
                   "emp_no", employeeNumber,
                   "salary", salary,
                   "from_date", hireDate,
@@ -108,6 +115,7 @@ addEmployee(int               employeeNumber,
 
     // confirm that information on the employee is complete
     conn->execute("get_current_employee_info_by_emp_no",
+		  "Confirm all employee data is stored",
                   "emp_no", employeeNumber);
     rc = conn->getReturnCode();
     if (rc != 0) return rc;

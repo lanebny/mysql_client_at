@@ -142,8 +142,8 @@ public:
     void              flushExecutionThread(RequestType requestType, int iparam = 0, const char * strparam = NULL);
     bool              isAsync() const {  return async_; }
 
-    ExecutionHandle   execute(const char * statementName, ...);  // parameter name/value pairs
-    ExecutionHandle   executeJson(const char * statementName, const Document * paramSettings, ...);
+    ExecutionHandle   execute(const char * statementName, const char * comment,  ...);  // parameter name/value pairs
+    ExecutionHandle   executeJson(const char * statementName, const char * comment,  const Document * paramSettings, ...);
     ExecutionHandle   doExecute(MySqlExecution * execution);
     MySqlExecution *  getCompletedExecution(ExecutionHandle xh = 0);
     MySqlExecution *  findExecution(ExecutionHandle xh = 0);

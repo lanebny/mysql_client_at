@@ -191,7 +191,7 @@ AuditObserver::prepareToAudit()
     }
 
     // Create the audit table if it doesn't exist
-    auditConn_->execute("create_audit_table", "table_name", auditTableName_.c_str() ); 
+    auditConn_->execute("create_audit_table", "", "table_name", auditTableName_.c_str() ); 
     rc = auditConn_->getReturnCode();
     if (rc != 0)
     {
@@ -234,11 +234,11 @@ AuditObserver::onEvent(MySqlExecution * execution, ExecutionState newState)
 
 // If the event is COMMIT or ROLLBACK, add an audit record
 void
-AuditObserver::onEvent(AuditEventType event, MySqlExecution * execution)
+AuditObserver::onEvent(AuditEventType event, const char * comment, MySqlExecution * execution)
 {
     if (!isAuditing_) return;
     if (event != AUDIT_COMMIT && event != AUDIT_ROLLBACK) return;
-    insertRecord(event == AUDIT_COMMIT ? "COMMIT" : "ROLLBACK");
+    insertRecord(event == AUDIT_COMMIT ? "COMMIT" : "ROLLBACK", NULL, comment);
 }
 
 // Construct a json object containing the arguments for the 
@@ -246,12 +246,17 @@ AuditObserver::onEvent(AuditEventType event, MySqlExecution * execution)
 // representing the execution. Each parameter name should correspond 
 // to a member of the doc.
 void
-AuditObserver::insertRecord(const char * event, const rapidjson::Document * executionDom)
+AuditObserver::insertRecord(const char * event, const rapidjson::Document * executionDom, const char * comment)
 {
     rapidjson::Document insertArgs;
     insertArgs.SetObject();
     Value eventValue(event, strlen(event), insertArgs.GetAllocator());
     insertArgs.AddMember("event", eventValue, insertArgs.GetAllocator());
+    if (comment != NULL)
+    {
+        Value commentValue(comment, strlen(comment), insertArgs.GetAllocator());
+        insertArgs.AddMember("comment", commentValue, insertArgs.GetAllocator());
+    }
 
     const rapidjson::Value & statements =  auditConn_->getStatements()["statements"];
     const rapidjson::Value & insertStatement = statements[insertStatement_.c_str()];
@@ -314,7 +319,7 @@ AuditObserver::insertRecord(const char * event, const rapidjson::Document * exec
     }
 
     // insert the record
-    auditConn_->executeJson(insertStatement_.c_str(), &insertArgs);
+    auditConn_->executeJson(insertStatement_.c_str(), "", &insertArgs);
 }
 
 void

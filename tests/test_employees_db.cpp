@@ -15,12 +15,12 @@
 namespace 
 {
 
-class EmployeesDbTest : public ::testing::Test, public MySqlGtest
+class EmpTest : public ::testing::Test, public MySqlGtest
 {
 public:
     static void SetUpTestCase()
     {
-        setUpMySqlTestCase("EmployeesDbTest");
+        setUpMySqlTestCase("EmpTest");
     }
     static void TearDownTestCase()
     {
@@ -36,7 +36,7 @@ public:
     }
 };
 
-TEST_F(EmployeesDbTest, AddEmployee) 
+TEST_F(EmpTest, AddEmp) 
 {
     int rc;
     const char * errorMessage;
@@ -77,6 +77,7 @@ TEST_F(EmployeesDbTest, AddEmployee)
 
     // try to assign the new employee to a department before creating him -- should fail because of FK violation
     conn_->execute("assign_employee_to_department",
+		   "Fail adding unknown employee to a dept",
                    "emp_no", newEmployee["emp_no"].GetInt(),
                    "dept_no", newEmployee["dept_no"].GetString(),
                    "from_date", "2012-12-01",
@@ -160,6 +161,6 @@ TEST_F(EmployeesDbTest, AddEmployee)
 int main(int argc, char **argv) 
 {
     ::testing::InitGoogleTest(&argc, argv);
-    MySqlGtest::analyzeProgramOptions<EmployeesDbTest>(argc, argv);
+    MySqlGtest::analyzeProgramOptions<EmpTest>(argc, argv);
     return RUN_ALL_TESTS();
 }

@@ -34,12 +34,14 @@ my_bool MySqlExecution::mysqlTrue_ = true;
 my_bool MySqlExecution::mysqlFalse_ = false;
 
 MySqlExecution::MySqlExecution(const char *          statementName,
+			       const char *          comment,
 			       va_list &             args,
                                MySqlConnection *     conn,
                                MySqlConnectionImpl * connImpl)
 :   executionHandle_(nextExecutionHandle_++),
     requestSequence_(0),
     statementName_(statementName),
+    comment_(comment),
     args_(args),
     argDoc_(NULL),
     statementHandle_(NULL),
@@ -1150,6 +1152,13 @@ MySqlExecution::toJson()
     // statement_name
     Value nameValue(statementName_.c_str(), statementName_.size(), dom_.GetAllocator());
     dom_.AddMember("statement_name", nameValue, dom_.GetAllocator());
+
+    // comment
+    if (!comment_.empty())
+    {
+        Value commentValue(comment_.c_str(), comment_.size(), dom_.GetAllocator());
+        dom_.AddMember("comment", commentValue, dom_.GetAllocator());
+    }
 
     // statement_text
     Value textValue(statementText_.c_str(), statementText_.size(), dom_.GetAllocator());

@@ -175,22 +175,22 @@ MySqlConnection::getCurrentProgram() const
 }
 
 MySqlConnection::ExecutionHandle
-MySqlConnection::execute(const char * statementName, ...)
+MySqlConnection::execute(const char * statementName, const char * comment,  ...)
 {
     va_list args;
-    va_start(args, statementName);
+    va_start(args, comment);
 
-    MySqlExecution * execution = new MySqlExecution(statementName, args, this, impl_.get());
+    MySqlExecution * execution = new MySqlExecution(statementName, comment, args, this, impl_.get());
     return doExecute(execution);
 }
 
 MySqlConnection::ExecutionHandle
-MySqlConnection::executeJson(const char * statementName, const Document * paramSettings ...)
+MySqlConnection::executeJson(const char * statementName, const char * comment,  const Document * paramSettings ...)
 {
     va_list args;
     va_start(args, paramSettings);
 
-    MySqlExecution * execution = new MySqlExecution(statementName, args, this, impl_.get());
+    MySqlExecution * execution = new MySqlExecution(statementName, comment, args, this, impl_.get());
     execution->setParameterValues(paramSettings);
     return doExecute(execution);
 }
@@ -388,7 +388,7 @@ MySqlConnection::rollbackTransaction(const stringstream & reason)
              itrobs != observers_.end();
              ++itrobs)
         {
-            (*itrobs)->onEvent(AUDIT_ROLLBACK);
+	    (*itrobs)->onEvent(AUDIT_ROLLBACK, reason.str().c_str());
         }
         
         CONN_LOG(this, info) << "Rolled back transaction " << transactionName_ 
