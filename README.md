@@ -11,7 +11,7 @@ MySQL Client AT is a lightweight,  easy-to-use framework for building C++ applic
 All SQL statements are stored in JSON files called *SQL dictionaries*. A dictionary entry includes the statement's name and description, the SQL text, and a list of parameters. When an application sets up a database connection, it supplies a database name and SQL dictionary path, and it executes a statement by passing in its name and a list of parameter settings. 
 
 ##Audit##
-![Audit Summary](https://github.com/lanebny/mysql_client_at/blob/master/python/audit_summary.PNG)
+![Audit Summary](https://github.com/lanebny/mysql_client_at/blob/master/image/audit_summary.png)
 
 
 ##Other Features##
@@ -72,14 +72,7 @@ The project includes a Python script called `sql_explorer` that allows you to br
  
 You will be asked to supply MySQL connection information (user, password, host). These will be saved for future runs.  
 Then this prompt will appear:  
->
-`Options:`  
-&nbsp; &nbsp;`d dbname    Connect to a database`      
-&nbsp; &nbsp;`x [pattern] Select and execute a statement. If more than one`  
-&nbsp; &nbsp;&nbsp; &nbsp;&nbsp;`statement name contains the pattern, or the pattern`   
-&nbsp; &nbsp;&nbsp; &nbsp;&nbsp;`is omitted, you will be presented with a list  
-		of statements to choose from.`     
-`Enter an option code or nothing to quit:`  
+![sql_explorer](https://github.com/lanebny/mysql_client_at/blob/master/image/sql_prompt.png)
 
 Enter `d employees` to select the test database, then enter `x` to see a list of all the SQL statements that have been installed with framework. A good query to start with is `sample\_employees`, which returns the first N rows in the `employees` table.   
 
