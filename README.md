@@ -71,8 +71,8 @@ The project includes a Python script called `sql_explorer` that allows you to br
 `python sql_explorer.py`
  
 You will be asked to supply MySQL connection information (user, password, host). These will be saved for future runs.  
-Then this prompt will appear:  
-![sql_explorer](https://github.com/lanebny/mysql_client_at/blob/master/image/sql_prompt.png)
+Then this prompt will appear: 
+<img src="https://github.com/lanebny/mysql_client_at/blob/master/image/sql_prompt.png" width="200"  /> 
 
 Enter `d employees` to select the test database, then enter `x` to see a list of all the SQL statements that have been installed with framework. A good query to start with is `sample\_employees`, which returns the first N rows in the `employees` table.   
 
