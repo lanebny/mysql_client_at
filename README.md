@@ -24,17 +24,17 @@ The `audit` SQL dictionary includes statements meant to be run from the SQL expl
 ##Testing
 Testing for database applications starts with testable design, basically meaning a design that houses business functions in libraries. Given libraries of business functions, it is relatively easy to produce integration tests (tests that go against live databases) by linking the libraries into a test framework like Google Test, but not so easy to implement unit tests (fast, focused tests that don't require a database). Unit tests are important because they can be run after every commit, so that side-effect bugs can be caught as soon as they are introduced. 
 
-MySQL Client AT solves the unit-test problem by allowing you to re-run any successful integration test as a unit test. If you install the `capture` plugin when you run an integration test it will serialize statement executions into JSON files, which can then be used to run the same test without connecting to MySQL, by installing the `playback` plugin. The framework provides a Google Test fixture which allows you to run the same binary as an integration test or a unit test just by changing a command-line option.
+MySQL Client AT solves the unit-test problem by allowing you to re-run any successful integration test as a unit test. If you install the `capture` plugin when you run an integration test it will serialize statement executions into JSON files, which can then be used to run the same test without connecting to MySQL. The framework provides a Google Test fixture which allows you to run the same binary as an integration test or a unit test just by changing a command-line option.
 
 
 ##Other Features##
 
-* **Built on the efficient binary (prepared-statement) interface**. All SQL resides in JSON statement dictionaries. The client executes a statement by passing the statement name and parameter settings to the framework.
-* **Handles parameter binding automatically**. A statement's parameters are defined in the JSON dictionary. 
-* **Supports text-substitution parameters**. Both MySql and text-substitution parameters are supported. A substitution parameter specifies a token in the SQL text that is replaced by the caller's value.
+* **Built on the efficient binary (prepared-statement) interface**. The framework  takes care of MySQL bindings, parameter buffers and data buffers.    
+* **Handles parameter binding automatically**. The caller passes in tag-value pairs. The framework matches them against the parameter declarations in the SQL dictionary entry for the statement and creates the bindings.  
+* **Supports text-substitution parameters**. Both MySQL (place-holder) and text-substitution parameters are supported. A substitution parameter specifies a token in the SQL text that is replaced by the caller's value.
 * **Automatically re-uses statements** If the same statement is executed more than once in a program, the statement handle will automatically be re-used, so that no statement is prepared more than once.
 * **Prevents SQL injection**. A parameter declaration can include a regular expression that the value must match.
-* **Runs in synchronous or asynchronous mode**: The API is the same, only in asynchronous mode, execute calls don't block. (Results-retrieval calls can block.) 
+* **Runs in synchronous or asynchronous mode**: The API is the same, only in asynchronous mode, execute calls don't block. By default, the audit plugin creates an asynchronous connection to write audit records. 
 
 ##Installing and testing##
 
