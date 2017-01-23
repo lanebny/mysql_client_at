@@ -1,13 +1,12 @@
 
-# MySQL Client AT #
+#MySQL Client AT
 
-**A high-level MySQL client api with plugin support for auditing and testing.**   
-
+##A high-level MySQL client api with plugin support for auditing and testing  
 Getting database applications into production often involves making compromises with what many would view as best practices. It would be nice to have clean separation between interface and implementation, a complete, searchable audit trail, and robust, comprehensive tests, but who has the time? So it's common to find applications where SQL mingles with procedural code, where tracing database changes requires long, often inconclusive, hunts through multiple logs, and where tests, if they exist at all, use hand-coded mocks that can easily become obsolete as schemas change.
 
 MySQL Client AT is a lightweight, flexible C++ framework for implementing high-quality database applications, providing a SQL repository and plugins for auditing  and testing. 
 
-##Separation of Interface and Implementation##
+##Separation of Interface and Implementation
 The framework is based on *SQL dictionaries*, self-documenting JSON files of named, parameterized SQL statements. A C++ application creates a connection object and installs one or more SQL dictionaries on it. Then it can execute dictionary statements by name, leaving the code SQL-free. Results are returned in JSON documents. 
 
 A Python utility, `sql_explorer`, renders the collection of SQL dictionaries as a single repository. With the explorer you can execute existing statements and create new ones, so you can interactively test and tune your SQL statements without running the C++ modules that use them.   
@@ -16,14 +15,16 @@ A Python utility, `sql_explorer`, renders the collection of SQL dictionaries as 
 Auditing is handled by plugins that can be dynamically installed and removed at run-time . There can be multiple audit plugins installed at one time. Different audit tables may have different record layouts -- plugins compose INSERT statements based on the table definitions. For example, you might want to maintain a complete audit trail for certain critical functions, saving everything including parameter settings and results, while a routine audit might save only the statement name and time-of-day. 
 
 The framework provides a number of ways to tag audit records to make searching easier. 
-Any statement execution can include a comment, which will be included in any audit table that has a `comment` column. Also, you can group SQL statements together into `programs`, and record the program in the audit. Programs can be nested.  
+Any statement execution can include a comment, which will be included in any audit table that has a `comment` column. Also, you can group SQL statements together into *programs*, and record the program in the audit. Programs can be nested.  
 
 The `audit` SQL dictionary includes statements meant to be run from the SQL explorer, to allow interactive audit search. Here is an example of the `audit_summary` query:
 
 ![Audit Summary](https://github.com/lanebny/mysql_client_at/blob/master/image/audit_summary.png)
 
-##Testing##
-Testing for database applications starts with testable design, meaning basically a design that implements business functions as methods in libraries. Given a testable design, it is relatively easy to implement integration tests for business functions (tests that go against live databases), but not so easy to implement unit tests (tests that execute very quickly and don't require a database). Unit tests are important because they can be run any time, for example after every commit, so that side-effect bugs are caught as soon as they are introduced.. MySQL Client AT 
+##Testing
+Testing for database applications starts with testable design, basically meaning a design that houses business functions in libraries. Given libraries of business functions, it is relatively easy to produce integration tests (tests that go against live databases) by linking the libraries into a test framework like Google Test, but not so easy to implement unit tests (fast, focused tests that don't require a database). Unit tests are important because they can be run after every commit, so that side-effect bugs can be caught as soon as they are introduced. 
+
+MySQL Client AT solves the unit-test problem by allowing you to re-run any successful integration test as a unit test. If you install the `capture` plugin when you run an integration test it will serialize statement executions into JSON files, which can then be used to run the same test without connecting to MySQL, by installing the `playback` plugin. The framework provides a Google Test fixture which allows you to run the same binary as an integration test or a unit test just by changing a command-line option.
 
 
 ##Other Features##
