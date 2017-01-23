@@ -19,6 +19,8 @@
 using namespace std;
 using namespace boost;
 
+// 
+
 
 //                                   M Y S Q L  O B S E R V E R
 
@@ -403,6 +405,7 @@ CaptureObserver::endProgram(const char * programName)
 
 //                                  R E P L A Y  O B S E R V E R
 
+// 
 ReplayObserver::ReplayObserver(const char *                name,
 			       const rapidjson::Document * params,
 			       MySqlConnection *           conn)

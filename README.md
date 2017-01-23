@@ -1,17 +1,29 @@
 
 # MySQL Client AT #
 
-**A high-level MySQL client api with plug-in support for auditing and unit-testing.**   
+**A high-level MySQL client api with plugin support for auditing and testing.**   
 
-Writing database applications often involve compromises with what many would view as best practices. It would be nice to have clean separation between interface and implementation, a complete, searchable audit trail, and robust, comprehensive tests, but who has the time? So it's common to find applications where SQL mingles with procedural code, where tracing a database change back to the agent that caused it involves hunting through logs, and where tests, if they exist at all, use hand-coded mocks that often fail to reflect the current database structure.
+Getting database applications into production often involves making compromises with what many would view as best practices. It would be nice to have clean separation between interface and implementation, a complete, searchable audit trail, and robust, comprehensive tests, but who has the time? So it's common to find applications where SQL mingles with procedural code, where tracing database changes requires long, often inconclusive, hunts through multiple logs, and where tests, if they exist at all, use hand-coded mocks that can easily become obsolete as schemas change.
 
-MySQL Client AT is a lightweight,  easy-to-use framework for building C++ applications that comply with best practices. The framework uses a plug-in architecture, so that applications only pay for the functionality they use. 
+MySQL Client AT is a lightweight, flexible C++ framework for implementing high-quality database applications, providing a SQL repository and plugins for auditing  and testing. 
 
 ##Separation of Interface and Implementation##
-All SQL statements are stored in JSON files called *SQL dictionaries*. A dictionary entry includes the statement's name and description, the SQL text, and a list of parameters. When an application sets up a database connection, it supplies a database name and SQL dictionary path, and it executes a statement by passing in its name and a list of parameter settings. 
+The framework is based on *SQL dictionaries*, self-documenting JSON files of named, parameterized SQL statements. A C++ application creates a connection object and installs one or more SQL dictionaries on it. Then it can execute dictionary statements by name, leaving the code SQL-free. Results are returned in JSON documents. 
 
-##Audit##
+A Python utility, `sql_explorer`, renders the collection of SQL dictionaries as a single repository. With the explorer you can execute existing statements and create new ones, so you can interactively test and tune your SQL statements without running the C++ modules that use them.   
+
+##Auditing##
+Auditing is handled by plugins that can be dynamically installed and removed at run-time . There can be multiple audit plugins installed at one time. Different audit tables may have different record layouts -- plugins compose INSERT statements based on the table definitions. For example, you might want to maintain a complete audit trail for certain critical functions, saving everything including parameter settings and results, while a routine audit might save only the statement name and time-of-day. 
+
+The framework provides a number of ways to tag audit records to make searching easier. 
+Any statement execution can include a comment, which will be included in any audit table that has a `comment` column. Also, you can group SQL statements together into `programs`, and record the program in the audit. Programs can be nested.  
+
+The `audit` SQL dictionary includes statements meant to be run from the SQL explorer, to allow interactive audit search. Here is an example of the `audit_summary` query:
+
 ![Audit Summary](https://github.com/lanebny/mysql_client_at/blob/master/image/audit_summary.png)
+
+##Testing##
+Testing for database applications starts with testable design, meaning basically a design that implements business functions as methods in libraries. Given a testable design, it is relatively easy to implement integration tests for business functions (tests that go against live databases), but not so easy to implement unit tests (tests that execute very quickly and don't require a database). Unit tests are important because they can be run any time, for example after every commit, so that side-effect bugs are caught as soon as they are introduced.. MySQL Client AT 
 
 
 ##Other Features##
@@ -75,9 +87,9 @@ Then this prompt will appear:
     
  <img src="https://github.com/lanebny/mysql_client_at/blob/master/image/sql_prompt.png" width="500"  hspace="100"  /> 
 
-Enter `d employees` to select the test database, then enter `x` to see a list of all the SQL statements that have been installed with framework. A good query to start with is `sample\_employees`, which returns the first N rows in the `employees` table.   
+Enter `d employees` to select the test database, then enter `x` to see a list of all the SQL statements that have been installed with framework. The SQL dictionary `employees.json` contain statements aimed at the `employees` test database. A good query to start with is `sample\_employees`, which returns a random sample of rows in the `employees` table.   
 
-The audit queries take a table-name as a parameter. After you run the gtest in the next section the database will contain a table of audit records called `audit_test`. You can run the audit queries against this table.
+The SQL dictionary `audit.json` contains statements that create, populate and query audit tabkes. After you run the gtest in the next section,9 the database will contain a table of audit records called `audit_test`. You can run the audit queries against this table.
 
 ###Exercising the framework###
 
