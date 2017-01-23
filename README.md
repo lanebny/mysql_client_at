@@ -22,7 +22,7 @@ The `audit` SQL dictionary includes statements meant to be run from the SQL expl
 ![Audit Summary](https://github.com/lanebny/mysql_client_at/blob/master/image/audit_summary.png)
 
 ##Testing
-Testing for database applications starts with testable design, basically meaning a design that houses business functions in libraries. Given libraries of business functions, it is relatively easy to produce integration tests (tests that go against live databases) by linking the libraries into a test framework like Google Test, but not so easy to implement unit tests (fast, focused tests that don't require a database). Unit tests are important because they can be run after every commit, so that side-effect bugs can be caught as soon as they are introduced. 
+Testing for database applications starts with testable design, basically meaning a design that packages business functions in libraries. Given libraries of business functions, it is relatively easy to produce integration tests (tests that go against live databases) by linking the libraries into a test framework like Google Test, but not so easy to implement unit tests (fast, focused tests that don't require a database). Unit tests are important because they can be run after every commit, so that side-effect bugs can be caught as soon as they are introduced. 
 
 MySQL Client AT solves the unit-test problem by allowing you to re-run any successful integration test as a unit test. If you install the `capture` plugin when you run an integration test it will serialize statement executions into JSON files, which can then be used to run the same test without connecting to MySQL. The framework provides a Google Test fixture which allows you to run the same binary as an integration test or a unit test just by changing a command-line option.
 
@@ -34,7 +34,8 @@ MySQL Client AT solves the unit-test problem by allowing you to re-run any succe
 * **Supports text-substitution parameters**. Both MySQL (place-holder) and text-substitution parameters are supported. A substitution parameter specifies a token in the SQL text that is replaced by the caller's value.
 * **Automatically re-uses statements** If the same statement is executed more than once in a program, the statement handle will automatically be re-used, so that no statement is prepared more than once.
 * **Prevents SQL injection**. A parameter declaration can include a regular expression that the value must match.
-* **Runs in synchronous or asynchronous mode**: The API is the same, only in asynchronous mode, execute calls don't block. By default, the audit plugin creates an asynchronous connection to write audit records. 
+* **Runs in synchronous or asynchronous mode**: The API is the same, only in asynchronous mode, execute calls don't block. By default, the audit plugin creates an asynchronous connection to write audit records.  
+* **Connections can be debugged dynamically**: Attaching the `debug` plugin to a connection causes the inputs and outputs of every statement execution to be traced out.
 
 ##Installing and testing##
 
@@ -61,7 +62,7 @@ Tested with  v1.60.0
 Python 2.7 or higher  
 MySQL Connector/Python. Tested with v2.1.5  
 
-Google Test and rapidjson are copied from github during the install process  
+Google Test and rapidjson are cloned from github during the install process  
 
 ###To install###
 ` git clone https://github.com/lanebny/mysql_client_at`  
@@ -88,15 +89,15 @@ Then this prompt will appear:
     
  <img src="https://github.com/lanebny/mysql_client_at/blob/master/image/sql_prompt.png" width="500"  hspace="100"  /> 
 
-Enter `d employees` to select the test database, then enter `x` to see a list of all the SQL statements that have been installed with framework. The SQL dictionary `employees.json` contain statements aimed at the `employees` test database. A good query to start with is `sample\_employees`, which returns a random sample of rows in the `employees` table.   
+Enter `d employees` to select the test database, then enter `x` to see a list of all the SQL statements that have been installed with framework. The SQL dictionary `employees.json` contain statements aimed at the `employees` test database. A good query to start with is `sample_employees`, which returns a random sample of rows in the `employees` table.   
 
 The SQL dictionary `audit.json` contains statements that create, populate and query audit tabkes. After you run the gtest in the next section,9 the database will contain a table of audit records called `audit_test`. You can run the audit queries against this table.
 
 ###Exercising the framework###
 
-It's good practice to package database operations in libraries that hide the SQL and expose high-level business functions.  Besides providing intuitive APIs and re-usable functionality, this allows tests to exercise exactly the same code that the production applications use.  
+It's good practice to package database operations in libraries that hide the SQL and expose high-level business functions.  APIs are intuitive, functionality is reusable, and tests can exercise exactly the same code that the production applications use.  
 
-The installation process generated one such library, `libemployees_db.a` from `examples/employees_db.cpp` . This library implements a single business function, `addEmployee`, which accepts information about a new hire, performs a number of validation queries (Is the employee number already in use? Is the department name valid? Does the salary make sense given the current salary range?) and then executes three INSERT statements as a single transaction to set up the employee.
+The installation process generated one such library, `libemployees_db.a` from `examples/employees_db.cpp` . Currently this library implements a single business function, `addEmployee`, which accepts information about a new hire, performs a number of validation queries (Is the employee number already in use? Is the department name valid? Does the salary make sense given the current salary range?) and then executes three INSERT statements as a single transaction to set up the employee.
 
 The Google testcase for this library is in `tests/test_employee_db.cpp`. It confirms that all erroneous calls (e.g. adding an existing employee) fail as expected, then inserts a new employee. 
 
